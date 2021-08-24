@@ -6,9 +6,9 @@ import gym
 import agent
 
 
-CONFIG_CONT = 'tests_gripper/config/test_continous.yaml'
-CONFIG_DISCRETE = 'tests_gripper/config/test_discrete.yaml'
-CONFIG_CONT_SIMP = 'tests_gripper/config/test_simplified_cont.yaml'
+CONFIG_CONT = 'test/config/test_continous.yaml'
+CONFIG_DISCRETE = 'test/config/test_discrete.yaml'
+CONFIG_CONT_SIMP = 'test/config/test_simplified_cont.yaml'
 #CONFIG_ENCODER_SIMP = 'tests_gripper/config/test_encoder_simp.yaml'
 #CONFIG_ENCODER = 'tests_gripper/config/test_encoder.yaml'
 

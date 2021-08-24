@@ -1,6 +1,6 @@
 # Robot parameters
 robot:
-  model_path: models/gripper/wsg50_one_motor_gripper_new.sdf
+  model_path: assets/gripper/wsg50_one_motor_gripper_new.sdf
   max_translation: 0.01
   max_yaw_rotation: 0.15
   max_force: 100
@@ -13,7 +13,7 @@ robot:
 
 # Experimental setup parameters
 scene:
-  model_path: models/
+  model_path: assets/
   data_set: random_urdfs
 
 # Simulation parameters

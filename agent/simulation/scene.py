@@ -10,11 +10,11 @@ class OnTable(BaseScene):
     """Tabletop settings with geometrically different objects."""
     def reset(self):
         self.table_path = 'table/table.urdf'
-        self.plane_path = 'plane.urdf'
+        self.plane_path = 'plane/plane.urdf'
         self._model_path = pybullet_data.getDataPath()
         tray_path = os.path.join(self._model_path, 'tray/tray.urdf')
-        plane_urdf = os.path.join("models", self.plane_path)
-        table_urdf = os.path.join("models", self.table_path)
+        plane_urdf = os.path.join("assets", self.plane_path)
+        table_urdf = os.path.join("assets", self.table_path)
         self._world.add_model(plane_urdf, [0., 0., -1.], [0., 0., 0., 1.])
         self._world.add_model(table_urdf, [0., 0., -.82], [0., 0., 0., 1.])
         #self._world.add_model(tray_path, [0, 0.075, -0.19],
@@ -38,7 +38,7 @@ class OnFloor(BaseScene):
     """Curriculum paper setup."""
     def reset(self):
         self.plane_path = 'plane.urdf'
-        plane_urdf = os.path.join("models", self.plane_path)
+        plane_urdf = os.path.join("assets", self.plane_path)
         self._world.add_model(plane_urdf, [0., 0., -0.196], [0., 0., 0., 1.])
         # Sample random objects
         n_objects = self._rng.randint(self.min_objects, self.max_objects + 1)

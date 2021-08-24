@@ -21,7 +21,7 @@ class BaseScene(ABC):
         print("dataset", config['scene']['data_set'])
 
     def _sample_wooden_blocks(self, n_objects):
-        self._model_path = "models/"
+        self._model_path = "assets/"
         object_names = ['circular_segment', 'cube',
                         'cuboid0', 'cuboid1', 'cylinder', 'triangle']
         selection = self._rng.choice(object_names, size=n_objects)
