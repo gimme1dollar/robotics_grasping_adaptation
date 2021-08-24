@@ -8,7 +8,7 @@ import gym
 import agent
 from agent.common import io_utils
 
-config = io_utils.load_yaml("config/gripper_grasp.yaml")
+config = io_utils.load_yaml("config/gripper.yaml")
 env = gym.make("gripper-env-v0", config=config)
 total_timestep=100_000
 
