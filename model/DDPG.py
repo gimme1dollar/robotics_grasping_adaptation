@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import matplotlib.pyplot as plt
 from torch.distributions import Normal
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -161,18 +162,18 @@ if __name__ == '__main__':
     max_episode = 300
     eval_steps, eval_rewards = [], []
     for i in range(max_episode):
-        total_reward = 0
-        step = 0
-        state = env.reset()
+        step, total_reward = 0, 0
+        curr_state = env.reset()
         for t in count():
-            action = agent.epsilon_greedy_action(state, env.action_space.low, env.action_space.high)
+            action = agent.epsilon_greedy_action(curr_state, env.action_space.low, env.action_space.high)
 
             next_state, reward, done, info = env.step(action)
             if total_step % 100 == 0 : env.render()
-            agent.replay_buffer.push((state, next_state, action, reward, np.float(done)))
+            agent.replay_buffer.push((curr_state, next_state, action, reward, np.float(done)))
 
-            state = next_state
+            curr_state = next_state
             if done: break
+
             step += 1
             total_reward += reward
         total_step += step+1
@@ -181,7 +182,7 @@ if __name__ == '__main__':
         eval_rewards.append(total_reward)
         agent.update(2000)
 
-plt.figure(figsize=(15, 15))
-plt.title('reward')
-plt.plot(eval_steps, eval_rewards, 'r')
-plt.savefig('./demo/ddpg_example.png')
+    plt.figure(figsize=(15, 15))
+    plt.title('reward')
+    plt.plot(eval_steps, eval_rewards, 'r')
+    plt.savefig('./demo/ddpg_example.png')

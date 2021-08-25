@@ -26,10 +26,25 @@ https://github.com/BarisYazici/deep-rl-grasping
 ```
 pytest test
 ```
+
+## Algorithm
+- DDPG pseudo algorithm
+<p align="center">
+<img src="demo/ddpg_pseudo.png" width="350px">
+</p>
+
 ## Demo
 - env test     
 <p align="center">
 <img src="demo/pybullet.PNG" width="500px">
+</p>
+
+- ddpg (pendulum)
+<p align="center">
+<img src="demo/pendulum.png" width="500px" height="250px">
+</p>
+<p align="center">
+<img src="demo/ddpg_pendulum.png" width="500px" height="300px">
 </p>
 
 

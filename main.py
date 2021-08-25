@@ -1,6 +1,7 @@
 import pybullet as p
 import numpy as np
 import os
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 from itertools import count
 
