@@ -8,7 +8,7 @@ import pybullet as p
 #import tensorflow as tf
 
 from agent.common import io_utils, transform_utils, camera_utils
-from agent.gripperEnv import encoders
+from agent.gripperEnv import encoder
 
 class RGBDSensor:
     """Collects synthetic RGBD images of the scene.
@@ -189,7 +189,7 @@ class EncodedDepthImgSensor:
 
         # Build the graph and restore trained weights
         with tf.name_scope(self.scope):
-            self._encoder = encoders.SimpleAutoEncoder(encoder_config)
+            self._encoder = encoders.AutoEncoder(encoder_config)
             self._encoder.load_weights(model_dir)
 
         # Define the state space
