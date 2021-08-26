@@ -80,11 +80,18 @@ class Critic(nn.Module):
 
 
 class DDPG(object):
-    def __init__(self, state_dim, action_dim, max_action,
-                 gamma=0.99, tau=0.005, epsilon=0.1):
-        self.gamma = gamma
-        self.tau = tau
-        self.epsilon = epsilon
+    def __init__(self, state_dim, action_dim, max_action, config=None,
+                 gamma=0.99, tau=0.005, batch_size=32):
+        if config is None:
+            self.config = None
+            self.gamma = gamma
+            self.tau = tau
+            self.batch_size = batch_size
+        else:
+            self.config = config
+            self.gamma = config['gamma']
+            self.tau = config['tau']
+            self.batch_size = config['batch_size']
 
         self.actor_agent = Actor(state_dim, action_dim, max_action).to(device)
         self.critic_agent = Critic(state_dim, action_dim).to(device)
@@ -103,8 +110,13 @@ class DDPG(object):
         self.num_actor_update_iteration = 0
         self.num_training = 0
 
-    def update_epsilone(self, epoch, EPS_START=5, EPS_END=0, EPS_DECAY=1000):
-        self.epsilon = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * epoch / EPS_DECAY)
+    def update_epsilone(self, epoch, EPS_START=10, EPS_END=0, EPS_DECAY=10000):
+        if self.config == None:
+            self.epsilon = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * epoch / EPS_DECAY)
+        else:
+            self.epsilon = (self.config['epsilon_start'] - self.config['epsilon_end'])
+            self.epsilon *= math.exp(-1. * epoch / self.config['epsilon_decay'])
+            self.epsilon += self.config['epsilon_end']
         return
 
     def epsilon_greedy_action(self, state, dim, low = -1, high = 1):
@@ -118,7 +130,7 @@ class DDPG(object):
     def update(self, update_iteration):
         for it in range(update_iteration):
             # Sample from replay buffer
-            x, y, a, r, d = self.replay_buffer.sample(32)
+            x, y, a, r, d = self.replay_buffer.sample(self.batch_size)
             curr_state = torch.FloatTensor(x).to(device)
             next_state = torch.FloatTensor(y).to(device)
             action = torch.FloatTensor(a).to(device)
@@ -136,7 +148,7 @@ class DDPG(object):
             critic_loss.backward()
             self.critic_optimizer.step()
 
-            ## Training critic
+            ## Training actor
             self.actor_optimizer.zero_grad()
 
             actor_loss = self.critic_agent(curr_state, self.actor_agent(curr_state))

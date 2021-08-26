@@ -14,6 +14,7 @@ class Reward:
         self._delta_z_scale = config['delta_z_scale']
         self._lift_success = config.get('lift_success', self._terminal_reward)
         self._time_penalty = config.get('time_penalty', False)
+        self._out_penalty = config.get('out_penalty', False)
         self._table_clearing = config.get('table_clearing', False)
         self.lift_dist = None
 
@@ -134,10 +135,18 @@ class ShapedCustomReward(Reward):
             self._lifting = False
 
         # Time penalty
+        '''
         if self._shaped:
             reward -= self._time_penalty
         else:
             reward -= 0.01
+        '''
+
+        # Range out of bound penalty
+        if (position[0] > 0.3) or (position[1] > 0.3):
+            reward -= self._out_penalty
+        if (position[2] > 0.25) or (position[2] < 0):
+            reward -= self._out_penalty * 3
 
         self._old_robot_height = robot_height
         return reward, robot.RobotEnv.Status.RUNNING

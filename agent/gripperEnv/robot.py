@@ -42,6 +42,7 @@ class RobotEnv(World):
         SUCCESS = 1
         FAIL = 2
         TIME_LIMIT = 3
+        OUT_BOUND = 4
 
     def __init__(self, config, evaluate=False, test=False, validate=False):
         if not isinstance(config, dict):
@@ -160,25 +161,30 @@ class RobotEnv(World):
         new_obs = self._observe()
 
         reward, self.status = self._reward_fn(self.obs, action, new_obs)
-        self.episode_rewards[self.episode_step] = reward
+        #self.episode_rewards[self.episode_step] = reward
 
-        if self.status != RobotEnv.Status.RUNNING:
+
+        if self.status == RobotEnv.Status.SUCCESS:
             done = True
         elif self.episode_step == self.time_horizon - 1:
             done, self.status = True, RobotEnv.Status.TIME_LIMIT
         else:
             done = False
-
+        
         if done:
             self._trigger_event(RobotEnv.Events.END_OF_EPISODE, self)
+
+        position, _ = self.get_pose()
+        is_in_bound = "in" if (position[0] < 0.3) and (position[1] < 0.3) and (position[2] < 0.25) and (position[2] > 0) else "out"
 
         self.episode_step += 1
         self.obs = new_obs
         if len(self.curriculum._history) != 0:
             self.sr_mean = np.mean(self.curriculum._history)
         super().step_sim()
-        return self.obs, reward, done, {"is_success":self.status==RobotEnv.Status.SUCCESS, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards, "status": self.status}
-
+        #return self.obs, reward, done, {"is_success":self.status==RobotEnv.Status.SUCCESS, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards, "status": self.status}
+        return self.obs, reward, done, {"status": self.status, "position": is_in_bound}
+        
     def _observe(self):
         if not self.depth_obs and not self.full_obs:
             obs = np.array([])
