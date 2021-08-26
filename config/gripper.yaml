@@ -20,12 +20,13 @@ scene:
 # Simulation parameters
 simulation:
   real_time: False
-  visualize: True
-
+  visualize: False
+  
 sensor:
   camera_info: config/camera_info.yaml
   transform: config/camera_transform.yaml
-  encoder_dir: encoder_files/new_gripper_encoder
+  encoder_dir: config/encoder.yaml
+  encode: True
   visualize: True
 
   # Randomize camera parameters

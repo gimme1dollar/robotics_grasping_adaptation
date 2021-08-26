@@ -5,6 +5,7 @@ Code modified from: https://github.com/sweetice/Deep-reinforcement-learning-with
 import argparse
 from itertools import count
 
+import math
 import os, sys, random
 import numpy as np
 
@@ -102,11 +103,15 @@ class DDPG(object):
         self.num_actor_update_iteration = 0
         self.num_training = 0
 
-    def epsilon_greedy_action(self, state, low = 0, high = 1):
+    def update_epsilone(self, epoch, EPS_START=5, EPS_END=0, EPS_DECAY=1000):
+        self.epsilon = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * epoch / EPS_DECAY)
+        return
+
+    def epsilon_greedy_action(self, state, dim, low = -1, high = 1):
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)
         action = self.actor_agent(state)
         action = action.cpu().data.numpy().flatten()
-        action += np.random.normal(0, self.epsilon, size=env.action_space.shape[0])
+        action += np.random.normal(0, self.epsilon, size=dim)
         action = action.clip(low, high)
         return action
 
@@ -149,6 +154,24 @@ class DDPG(object):
             self.num_actor_update_iteration += 1
             self.num_critic_update_iteration += 1
 
+    def load_weight(self, model_dir="./checkpoints/DDPG_tmp.pth"):
+        model = torch.load(model_dir, map_location=device)
+        self.actor_agent.load_state_dict(model['actor_agent'])
+        self.critic_agent.load_state_dict(model['critic_agent'])
+        self.actor_target.load_state_dict(model['actor_target'])
+        self.critic_target.load_state_dict(model['critic_target'])
+        return
+
+    def save_weight(self, model_dir="./checkpoints/DDPG_tmp.pth"):
+        checkpoint = {
+            'actor_agent': self.actor_agent.state_dict(),
+            'critic_agent': self.critic_agent.state_dict(),
+            'actor_target': self.actor_target.state_dict(),
+            'critic_target': self.critic_target.state_dict()
+        }
+        torch.save(checkpoint, model_dir)
+        return
+
 if __name__ == '__main__':
     env = gym.make("Pendulum-v0")
 
@@ -157,15 +180,16 @@ if __name__ == '__main__':
     max_action = float(env.action_space.high[0])
 
     agent = DDPG(state_dim, action_dim, max_action)
+    #agent.load_weight()
     
-    total_step = 0
+    total_step, max_reward = 0, -float("inf")
     max_episode = 300
     eval_steps, eval_rewards = [], []
     for i in range(max_episode):
         step, total_reward = 0, 0
         curr_state = env.reset()
         for t in count():
-            action = agent.epsilon_greedy_action(curr_state, env.action_space.low, env.action_space.high)
+            action = agent.epsilon_greedy_action(curr_state, action_dim, env.action_space.low, env.action_space.high)
 
             next_state, reward, done, info = env.step(action)
             if total_step % 100 == 0 : env.render()
@@ -177,11 +201,14 @@ if __name__ == '__main__':
             step += 1
             total_reward += reward
         total_step += step+1
-        print(f"Total T:{total_step} Episode: \t{i} Total Reward: \t{total_reward:0.2f}")
         eval_steps.append(total_step)
         eval_rewards.append(total_reward)
         agent.update(2000)
-
+        
+        if max_reward < total_reward:
+            max_reward = total_reward
+            agent.save_weight()
+            print(f"Total T:{total_step} Episode: \t{i} Total Reward: \t{total_reward:0.2f}")
     plt.figure(figsize=(15, 15))
     plt.title('reward')
     plt.plot(eval_steps, eval_rewards, 'r')

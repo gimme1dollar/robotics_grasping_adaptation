@@ -33,12 +33,7 @@ pytest test
 <img src="demo/ddpg_pseudo.png" width="350px">
 </p>
 
-## Demo
-- env test     
-<p align="center">
-<img src="demo/pybullet.PNG" width="500px">
-</p>
-
+## Demo 
 - ddpg (pendulum)
 <p align="center">
 <img src="demo/pendulum.png" width="500px" height="250px">
@@ -47,6 +42,14 @@ pytest test
 <img src="demo/ddpg_pendulum.png" width="500px" height="300px">
 </p>
 
+- ddpg (pybullet/gripper)     
+in progress...
+<p align="center">
+<img src="demo/pybullet.PNG" width="500px">
+</p>
+<p align="center">
+<img src="demo/ddpg_grasping.png" width="500px" height="300px">
+</p>
 
 ## Contributors
 이주용 안석준

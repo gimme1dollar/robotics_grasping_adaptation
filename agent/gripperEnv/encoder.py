@@ -1,7 +1,3 @@
-'''
-    Code is modified from https://github.com/L1aoXingyu
-'''
-
 import numpy as np
 import sys, os; sys.path.append(os.path.abspath(os.path.join('..', 'JUMP')))
 from agent.common import io_utils
@@ -14,6 +10,12 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.autograd import Variable
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def embed_state(obs):
+    obs = torch.from_numpy(obs[:,:,:3])
+    obs = obs.unsqueeze(0).permute(0, 3, 1, 2)
+    obs = Variable(obs).to(device).float()
+    return obs
 
 '''
 class Encoder(nn.Module):
@@ -42,7 +44,6 @@ class Encoder(nn.Module):
         return x
 '''
         
-
 class AutoEncoder(nn.Module):
     """ Vanilla autoencode r"""
 
@@ -84,16 +85,21 @@ class AutoEncoder(nn.Module):
 
     def encode(self, x):
         x = self.encoder(x)
-        x = nn.Upsample(size=None, scale_factor=16, mode='bilinear', align_corners=True)(x)
         x = x.detach().cpu().numpy()
         return x
 
-    def load_weight(self):
-        self.encoder.load_state_dict(torch.load(self.model_path))
+    def load_weight(self, model_path=None):
+        if model_path is None:
+            self.encoder.load_state_dict(torch.load(self.model_path))
+        else:
+            self.encoder.load_state_dict(torch.load(model_path))
         return
 
-    def save_weight(self):
-        torch.save(self.encoder.state_dict(), self.model_path)
+    def save_weight(self, model_path=None):
+        if model_path is None:
+            torch.save(self.encoder.state_dict(), self.model_path)
+        else:
+            torch.save(self.encoder.state_dict(), model_path)
         return
 
     def train(self, inputs, targets, batch_size, epochs, model_dir):
@@ -120,8 +126,8 @@ if __name__ == '__main__':
     action_max = env.action_space.high
     model = AutoEncoder(config).to(device)
     
-
-    num_epochs = 10_000
+    '''
+    num_epochs = 30
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), 
                                 lr=1e-3,
@@ -160,10 +166,20 @@ if __name__ == '__main__':
                     print(f'epoch [{epoch+1}/{num_epochs}], loss:{total_loss/total_obs:.4f}')
                     #print(reward)
                 last_obs = obs
-    model.save_weight()
+        model.save_weight()
+    '''
 
-    model.load_weight()
-    random_input = torch.rand(3, 64, 64).unsqueeze(0).to(device)
-    random_embedding = model.encode(random_input)
-    print(random_embedding)
+    plt.ion()
+    model.load_weight("./checkpoints/encoder_000018.pth")
+    while True:
+        action = np.random.rand(5)
+        action = action * (action_max - action_min) + action_min
+        obs, reward, done, _ = env.step(action)
+        obs = embed_state(obs)        
+        emb = model.encode(obs)
+
+        plt.imshow(emb[0][0], cmap='gray')
+        plt.show()
+        plt.pause(0.1) 
+
 

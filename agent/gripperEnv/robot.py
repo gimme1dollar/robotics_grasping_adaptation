@@ -11,7 +11,7 @@ from enum import Enum
 from agent.common import io_utils
 from agent.common import transformations
 from agent.common import transform_utils
-from agent.gripperEnv import sensor, actuator
+from agent.gripperEnv import sensor, encoder, actuator
 from agent.simulation.simulation import World 
 from agent.gripperEnv.rewards import Reward, SimplifiedReward, ShapedCustomReward
 from agent.gripperEnv.curriculum import WorkspaceCurriculum
@@ -82,8 +82,7 @@ class RobotEnv(World):
         if self.depth_obs or self.full_obs:
             self._sensors = [self._camera]
         else:
-            self._encoder = sensor.EncodedDepthImgSensor(
-                                    config, self._camera, self)
+            self._encoder = sensor.EncodedDepthImgSensor(config, self._camera, self)
             self._sensors = [self._encoder]
         if not self._simplified:
             self._sensors.append(self._actuator)
