@@ -34,21 +34,25 @@ pytest test
 </p>
 
 ## Demo 
-- ddpg (pendulum)
-<p align="center">
-<img src="demo/pendulum.png" width="500px" height="250px">
-</p>
-<p align="center">
-<img src="demo/ddpg_pendulum.png" width="500px" height="300px">
-</p>
-
-- ddpg (pybullet/gripper)     
-in progress...
+- env (pybullet)
 <p align="center">
 <img src="demo/pybullet.PNG" width="500px">
 </p>
+
+- ddpg (pendulum)
 <p align="center">
-<img src="demo/ddpg_grasping.png" width="500px" height="300px">
+<img src="demo/pendulum.png" width="350px">
+</p>
+<p align="center">
+<img src="demo/ddpg_pendulum.png" width="400px" height="200px">
+</p>
+
+- ddpg (pybullet/gripper)     
+<p align="center">
+<img src="demo/ddpg_grasping.gif" width="300px">
+</p>  
+<p align="center">
+<img src="demo/ddpg_grasping.png" width="700px">
 </p>
 
 ## Contributors
