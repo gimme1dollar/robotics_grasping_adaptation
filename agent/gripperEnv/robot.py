@@ -13,7 +13,7 @@ from agent.common import transformations
 from agent.common import transform_utils
 from agent.gripperEnv import sensor, encoder, actuator
 from agent.simulation.simulation import World 
-from agent.gripperEnv.rewards import Reward, SimplifiedReward, ShapedCustomReward
+from agent.gripperEnv.rewards import CustomReward
 from agent.gripperEnv.curriculum import WorkspaceCurriculum
 
 def _reset(robot, actuator, depth_sensor, skip_empty_states=False):
@@ -72,12 +72,15 @@ class RobotEnv(World):
         self._camera = sensor.RGBDSensor(config['sensor'], self)
 
         # Assign the reward fn
+        self._reward_fn = CustomReward(config['reward'], self)
+        '''
         if self._simplified:
             self._reward_fn = SimplifiedReward(config['reward'], self)
         elif config['reward']['custom']:
             self._reward_fn = ShapedCustomReward(config['reward'], self)
         else:    
             self._reward_fn = Reward(config['reward'], self)
+        '''
 
         # Assign the sensors
         if self.depth_obs or self.full_obs:

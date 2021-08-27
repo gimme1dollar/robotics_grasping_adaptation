@@ -29,7 +29,7 @@ cur_state = env.reset()
 
 # encoder
 encoder = AutoEncoder(config).to(device)
-encoder.load_weight("./checkpoints/encoder_000018.pth")
+encoder.load_weight("./checkpoints/encoder_000018_.pth")
 enc_state = encoder.encode(embed_state(cur_state))
 state_dim = enc_state.flatten().shape[0]
 
@@ -41,6 +41,7 @@ action_min = float(env.action_space.low[0])
 action_max = float(env.action_space.high[0])
 
 agent = DDPG(state_dim, action_dim, action_max, config.get('DDPG'))
+agent.load_weight("./checkpoints/agent_000195_.pth")
 wandb.watch(agent.actor_agent)
 wandb.watch(agent.critic_agent)
 
@@ -65,19 +66,14 @@ for epoch in range(max_episode):
 
         agent.replay_buffer.push((cur_state, nxt_state, action, reward, np.float(done)))
 
+        step += 1; total_reward += reward
         cur_state = nxt_state
-        if done: 
-            if info['status'] == RobotEnv.Status.SUCCESS : success.append(1)
-            else: success.append(0)
-            break
-            
-        step += 1
-        total_reward += reward
+        if done: success.append(1) if info['status'] == RobotEnv.Status.SUCCESS else success.append(0); break
     total_step += step
     if len(success) < 100:
         success_rate = np.mean(success)
     else:
-        success_rate = np.mean(success[-50:])
+        success_rate = np.mean(success[20:])
     
     # logging
     print(f"Episode: {epoch:7d} Total Reward: {total_reward:7.2f}\t", end=" ")
@@ -90,13 +86,14 @@ for epoch in range(max_episode):
     wandb.log({"reward/total" : total_reward})
 
     # agent traning with warm start
-    if epoch > 50:
+    if epoch > 0:
         agent.update(1000) 
     
     # save
-    if save_flag < success_rate: 
-        save_flag = success_rate
+    #if save_flag < success_rate: 
+    #    save_flag = success_rate
+    if success_rate > 0.8 and len(success) > 10:
         agent.save_weight(f"./checkpoints/agent_{epoch:06d}.pth")
-    if success_rate > 0.8: exit()
+        exit()
 
 

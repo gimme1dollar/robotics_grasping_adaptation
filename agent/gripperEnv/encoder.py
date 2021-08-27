@@ -170,7 +170,7 @@ if __name__ == '__main__':
     '''
 
     plt.ion()
-    model.load_weight("./checkpoints/encoder_000018.pth")
+    model.load_weight("./checkpoints/encoder_000018_.pth")
     while True:
         action = np.random.rand(5)
         action = action * (action_max - action_min) + action_min
