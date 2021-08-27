@@ -34,11 +34,6 @@ pytest test
 </p>
 
 ## Demo 
-- env (pybullet)
-<p align="center">
-<img src="demo/pybullet.PNG" width="500px">
-</p>
-
 - ddpg (pendulum)
 <p align="center">
 <img src="demo/pendulum.png" width="350px">
@@ -47,12 +42,16 @@ pytest test
 <img src="demo/ddpg_pendulum.png" width="400px" height="200px">
 </p>
 
-- ddpg (pybullet/gripper)     
+- ddpg (pybullet/gripper)    
+  achieved upto 0.9 success rate (among latest 10 trial)
 <p align="center">
-<img src="demo/ddpg_grasping.gif" width="300px">
+<img src="demo/ddpg_grasping.gif" width="350px">
 </p>  
 <p align="center">
-<img src="demo/ddpg_grasping.png" width="700px">
+<img src="demo/ddpg_grasping_reward.png" width="400px">
+</p>
+<p align="center">
+<img src="demo/ddpg_grasping_success.png" width="400px">
 </p>
 
 ## Contributors
