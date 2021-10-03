@@ -37,6 +37,7 @@ pytest test
 
 - SAC pseudo algorithm
 <p align="center">
+<img src="demo/sac_pseudo.png" width="350px">
 
 </p>
 

@@ -6,7 +6,7 @@ from itertools import count
 
 import gym
 import agent
-from model.DDPG import DDPG
+from model import DDPG, SAC
 from agent.common import io_utils
 from agent.gripperEnv.robot import RobotEnv
 from agent.gripperEnv.encoder import AutoEncoder, embed_state
@@ -24,7 +24,7 @@ import wandb
 import warnings
 
 def ddpg_test():
-    #wandb.init(project="grasping_ddpg")
+    wandb.init(project="grasping_ddpg")
     warnings.filterwarnings("ignore")
 
     # config
@@ -37,7 +37,7 @@ def ddpg_test():
 
     # encoder
     encoder = AutoEncoder(config).to(device)
-    encoder.load_weight("./checkpoints/encoder_000018_.pth")
+    encoder.load_weight("./checkpoints/ddpg/encoder_000018_.pth")
     enc_state = encoder.encode(embed_state(cur_state))
     state_dim = enc_state.flatten().shape[0]
 
@@ -50,7 +50,7 @@ def ddpg_test():
 
     #state_dim = img_h * img_w * img_c
     agent = DDPG(state_dim, action_dim, action_max, config.get('DDPG'))
-    #agent.load_weight("./checkpoints/agent_000195_.pth")
+    #agent.load_weight("./checkpoints/ddpg/agent_000195_.pth")
     wandb.watch(agent.actor_agent)
     wandb.watch(agent.critic_agent)
 
@@ -102,11 +102,11 @@ def ddpg_test():
         
         # save
         if success_rate > 0.95 and len(success) > 20:
-            agent.save_weight(f"./checkpoints/agent_{epoch:06d}.pth")
+            agent.save_weight(f"./checkpoints/ddpg/agent_{epoch:06d}.pth")
             #exit()
 
 def sac_test():
-    #wandb.init(project="grasping_sac")
+    wandb.init(project="grasping_sac")
     warnings.filterwarnings("ignore")
 
     # config
@@ -120,8 +120,6 @@ def sac_test():
     sb_help = SAC.SBPolicy(env, env, config)
     sb_help.learn()
     env.close()
-    test_env.close()
-
 
 def main(args):
     if args.exp_algo == "ddpg":
@@ -131,8 +129,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--exp-algo', type=str, default='SAC',
-                        help='Name of the algorithm (default: SAC)')
+    parser.add_argument('--exp-algo', type=str, default='sac',
+                        help='Name of the algorithm (default: sac)')
 
     args = parser.parse_args()
     main(args)
