@@ -11,10 +11,10 @@ from enum import Enum
 from agent.common import io_utils
 from agent.common import transformations
 from agent.common import transform_utils
+
 from agent.gripperEnv import sensor, encoder, actuator
 from agent.simulation.simulation import World 
 from agent.gripperEnv.rewards import CustomReward
-from agent.gripperEnv.curriculum import WorkspaceCurriculum
 
 def _reset(robot, actuator, depth_sensor, skip_empty_states=False):
     """Reset until an object is within the fov of the camera."""
@@ -91,9 +91,6 @@ class RobotEnv(World):
         if not self._simplified:
             self._sensors.append(self._actuator)
 
-        self.curriculum = WorkspaceCurriculum(config['curriculum'], self, evaluate)
-
-        self.history = self.curriculum._history
         self._callbacks = {RobotEnv.Events.START_OF_EPISODE: [],
                         RobotEnv.Events.END_OF_EPISODE: [],
                         RobotEnv.Events.CLOSE: [],
@@ -112,7 +109,6 @@ class RobotEnv(World):
         self.register_callback(RobotEnv.Events.START_OF_EPISODE, reset)
         self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._camera.reset)
         self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._reward_fn.reset)
-        self.register_callback(RobotEnv.Events.END_OF_EPISODE, self.curriculum.update)
         self.register_callback(RobotEnv.Events.CLOSE, super().close)
 
     def reset(self):
@@ -182,8 +178,6 @@ class RobotEnv(World):
 
         self.episode_step += 1
         self.obs = new_obs
-        if len(self.curriculum._history) != 0:
-            self.sr_mean = np.mean(self.curriculum._history)
         super().step_sim()
         #return self.obs, reward, done, {"is_success":self.status==RobotEnv.Status.SUCCESS, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards, "status": self.status}
         return self.obs, reward, done, {"status": self.status, "position": is_in_bound}

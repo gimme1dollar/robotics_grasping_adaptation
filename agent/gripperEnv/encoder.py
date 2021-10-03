@@ -17,7 +17,6 @@ def embed_state(obs):
     obs = Variable(obs).to(device).float()
     return obs
 
-'''
 class Encoder(nn.Module):
     """ Vanilla CNN """
 
@@ -42,7 +41,6 @@ class Encoder(nn.Module):
     def forward(self, x):
         x = self.encoder(x)
         return x
-'''
         
 class AutoEncoder(nn.Module):
     """ Vanilla autoencode r"""
