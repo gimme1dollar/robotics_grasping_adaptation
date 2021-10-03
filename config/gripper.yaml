@@ -40,7 +40,7 @@ sensor:
 reward:
   custom: True
   shaped: True
-  terminal_reward: 10000.
+  terminal_reward: 5000.
   # lift_success: 1000.
   grasp_reward: 100.
   delta_z_scale: 100.
@@ -59,8 +59,8 @@ curriculum:
   extent: [0.01, 0.1]
   robot_height: [0.15, 0.25]
   lift_dist: [0.015, 0.1]
-  max_objects: [3, 5] # Change to [1, 5] when table clearing task is set
-  min_objects: [1, 1]
+  max_objects: 5 # [3, 5]
+  min_objects: 5 # [1, 1]
   # workspace: [0.2, 1]
   # work_height: [0.2, 1]
 
@@ -83,6 +83,14 @@ DDPG:
   batch_size: 32
   tau: 0.1
   gamma: 0.99
-  epsilon_start: 1
+  epsilon_start: 5
   epsilon_end: 0
   epsilon_decay: 200
+
+SAC:
+  max_iters: 10
+  batch_size: 32
+  layers: [64, 64]
+  buffer_size: 10000
+  step_size: 0.0000001
+  total_timesteps: 1_000_000
