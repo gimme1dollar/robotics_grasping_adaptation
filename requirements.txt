@@ -9,3 +9,4 @@ tqdm
 numba
 pyglet
 wandb
+stable-baselines3[extra]

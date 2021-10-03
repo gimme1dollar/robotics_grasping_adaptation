@@ -9,15 +9,17 @@ Domain adaptation on robot grasping
 - nvidia-dirver 461.72
 - cuda 11.1
 - cuDNN 8.0.5
-- pytorch 1.7.1
+- pytorch 1.9.1
+- torchvision 0.10.1
 - pybullet 2.6.4
+- stable_baseline 3
 ```
 - installation 
 ```
 git clone <url_repo> <dir_name>
 conda create -n <env_name> python=3.8
 conda activate <env_name> 
-conda install pytorch torchvision cudatoolkit=11.0 -c pytorch
+conda install pytorch torchvision cudatoolkit=11.1 -c pytorch -c conda-forge
 pip install -r requirements.txt
 ```
 
@@ -31,6 +33,11 @@ pytest test
 - DDPG pseudo algorithm
 <p align="center">
 <img src="demo/ddpg_pseudo.png" width="350px">
+</p>
+
+- SAC pseudo algorithm
+<p align="center">
+
 </p>
 
 ## Demo 
