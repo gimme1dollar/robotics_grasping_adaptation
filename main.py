@@ -49,7 +49,7 @@ def env_test() :
         object_id = env._scene._objects_body_ids[0]
         position, grasp_angle = get_grasp_position_angle(object_id)
         
-        for i in range(500):
+        for i in range(500_000_000):
             
             # Test for grasping success (this test is a necessary condition, not sufficient):
             target_joint = env.get_inverse(np.random.rand(3), np.random.rand(1))

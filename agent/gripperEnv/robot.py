@@ -18,13 +18,13 @@ from agent.gripperEnv import sensor, encoder, actuator
 from agent.simulation.simulation import World 
 from agent.gripperEnv.rewards import CustomReward
 
-def _reset(robot, actuator, depth_sensor, skip_empty_states=False):
+def _reset(robot, actuator, camera, skip_empty_states=False):
     ok = True
     while True:
         robot.reset_sim() #world + scene reset
         robot.reset_model() #robot model
         actuator.reset()
-        _, _, mask = depth_sensor.get_state()
+        #_, _, mask = camera.get_state()
         #ok = len(np.unique(mask)) > 2  # plane and gripper are always visible
 
         if not skip_empty_states:
@@ -90,6 +90,14 @@ class RobotEnv(World):
        
         shape = self._camera.state_space.shape
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(shape[0], shape[1], 5))
+
+    def _trigger_event(self, event, *event_args):
+        for fn, args, kwargs in self._callbacks[event]:
+            fn(*(event_args + args), **kwargs)
+
+    def register_callback(self, event, fn, *args, **kwargs):
+        """Register a callback associated with the given event."""
+        self._callbacks[event].append((fn, args, kwargs))
 
     def register_events(self, evaluate, config):
         # Setup the reset function
@@ -161,14 +169,6 @@ class RobotEnv(World):
 
         #print("reset_model out")
 
-    def _trigger_event(self, event, *event_args):
-        for fn, args, kwargs in self._callbacks[event]:
-            fn(*(event_args + args), **kwargs)
-
-    def register_callback(self, event, fn, *args, **kwargs):
-        """Register a callback associated with the given event."""
-        self._callbacks[event].append((fn, args, kwargs))
-
     def step(self, action):
         print("step")
         """Advance the Task by one step.
@@ -211,12 +211,12 @@ class RobotEnv(World):
         #return self.obs, reward, done, {"is_success":self.status==RobotEnv.Status.SUCCESS, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards, "status": self.status}
         return self.obs, reward, done, {"status": self.status, "position": is_in_bound}
         
-    # Overriden from World
     def step_sim(self, num_steps):
         for i in range(int(num_steps)):
             p.stepSimulation()
+
+            # gripper constraint
             if self._robot_gripper_id is not None:
-                # Constraints
                 gripper_joint_positions = np.array([p.getJointState(self._robot_gripper_id, i)[
                                                 0] for i in range(p.getNumJoints(self._robot_gripper_id))])
                 p.setJointMotorControlArray(
@@ -231,10 +231,11 @@ class RobotEnv(World):
             # time.sleep(1e-3)
 
     def get_pose(self):
-        return self._body.get_pose()
+        return self._gripper.get_pose()
 
     def _observe(self):
-        rgb, depth, _ = self._camera.get_state()
+        rgb, depth, mask = self._camera.get_state()
+        print(f"mask : {mask}, sensing {len(np.unique(mask))} objects")
 
         sensor_pad = np.zeros(self._camera.state_space.shape[:2])
         sensor_pad[0][0] = self._actuator.get_state()
