@@ -16,6 +16,7 @@ class World(gym.Env):
         STEP = 1
 
     def __init__(self, config, evaluate, test, validate):
+        print("world init")
         """Initialize a new simulated world.
 
         Args:
@@ -25,23 +26,26 @@ class World(gym.Env):
         """
         self._rng = self.seed(evaluate=evaluate)
         config_scene = config['scene']
-        self.scene_type = config_scene.get('scene_type', "OnTable")
+        self.scene_type = config_scene.get('scene_type', "WithBody")
         if self.scene_type == "OnTable":
             self._scene = scene.OnTable(self, config, self._rng, test, validate)
         elif self.scene_type == "OnFloor":
             self._scene = scene.OnFloor(self, config, self._rng, test, validate)
-        else:
-            self._scene = scene.OnTable(self, config, self._rng, test, validate)
+        elif self.scene_type == "WithBody":
+            self._scene = scene.WithBody(self, config, self._rng, test, validate)
 
         self.sim_time = 0.
         self._time_step = 1. / 240.
-        self._solver_iterations = 150
+        self._solver_iterations = 150 
 
         config = config['simulation']
         visualize = config.get('visualize', True) 
         self._real_time = config.get('real_time', True)
         self.physics_client = bullet_client.BulletClient(
             p.GUI if visualize else p.DIRECT)
+
+        # set gravity
+        p.setGravity(0, 0, -9.8)
 
         self.models = []
         self._callbacks = {World.Events.RESET: [], World.Events.STEP: []}

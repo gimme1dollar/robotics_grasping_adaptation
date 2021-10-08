@@ -38,7 +38,6 @@ pytest test
 - SAC pseudo algorithm
 <p align="center">
 <img src="demo/sac_pseudo.png" width="350px">
-
 </p>
 
 ## Demo 
@@ -61,6 +60,11 @@ pytest test
 <p align="center">
 <img src="demo/ddpg_grasping_success.png" width="400px">
 </p>
+
+- SAC (pybullet/arm)    
+<p align="center">
+<img src="demo/pybullet_arm.PNG" width="350px">
+</p>  
 
 ## Contributors
 이주용 안석준

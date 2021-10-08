@@ -4,16 +4,16 @@ robot:
   max_translation: 0.03
   max_yaw_rotation: 0.15
   max_force: 100
-  discrete: False
-  step_size: 0.01 #For discrete action space
-  yaw_step: 0.1
+  #discrete: False
+  #step_size: 0.01 #For discrete action space
+  #yaw_step: 0.1
   num_actions_pad: 2
-  # include_robot_height: True
+  include_robot_height: True
 
 
 # Experimental setup parameters
 scene:
-  scene_type: "OnTable" # OnTable scene is easier for the table clearing task
+  scene_type: WithBody # OnTable scene is easier for the table clearing task
   #scene_type: "OnFloor"
   data_set: random_urdfs
 
@@ -40,9 +40,9 @@ sensor:
 reward:
   custom: True
   shaped: True
-  terminal_reward: 5000.
+  terminal_reward: 5_000_000.
   # lift_success: 1000.
-  grasp_reward: 100.
+  grasp_reward: 100_000.
   delta_z_scale: 100.
   close_penalty: 1000.
   out_penalty: 1000.
@@ -55,7 +55,7 @@ skip_empty_initial_state: True
 # Use simplified problem formulation
 simplified: False
 # Depth + Actuator
-depth_observation: True
+observation: Full
 # RGB + Depth + Actuator
 full_observation: True
 # Markov decision process parameters
@@ -77,5 +77,5 @@ SAC:
   batch_size: 32
   layers: [64, 64]
   buffer_size: 10000
-  step_size: 0.0000001
+  step_size: 0.000001
   total_timesteps: 1_000_000

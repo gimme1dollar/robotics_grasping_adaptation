@@ -1,6 +1,8 @@
 import pybullet as p
 import numpy as np
 
+import pybullet_data
+
 
 class Model(object):
     def __init__(self, physics_client):
@@ -8,6 +10,7 @@ class Model(object):
 
     def load_model(self, path, start_pos=[0, 0, 0], 
                    start_orn=[0, 0, 0, 1], scaling=1., static=False):
+            
         if path.endswith('.sdf'):
             model_id = self._physics_client.loadSDF(path, globalScaling=scaling)[0]
             self._physics_client.resetBasePositionAndOrientation(model_id, start_pos, start_orn)
@@ -24,6 +27,7 @@ class Model(object):
             joint_limits = {'lower': joint_info[8], 'upper': joint_info[9],
                             'force': joint_info[10]}
             joints[i] = _Joint(self._physics_client, self.model_id, i, joint_limits)
+
             # link_name = joint_info[12].decode('utf8')
             links[i] = _Link(self._physics_client, self.model_id, i)
         self.joints, self.links = joints, links

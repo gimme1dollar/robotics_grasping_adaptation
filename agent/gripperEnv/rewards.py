@@ -12,10 +12,9 @@ class Reward:
         self._grasp_reward = config['grasp_reward']
         self._delta_z_scale = config['delta_z_scale']
         self._lift_success = config.get('lift_success', self._terminal_reward)
-        self._time_penalty = config.get('time_penalty', False)
-        self._out_penalty = config.get('out_penalty', False)
-        self._close_penalty = config.get('close_panelty', False)
-        self._table_clearing = config.get('table_clearing', False)
+        self._time_penalty = config['time_penalty']
+        self._out_penalty = config['out_penalty']
+        self._close_penalty = config['close_penalty']
         self.lift_dist = 0
 
         # Placeholders
@@ -73,10 +72,7 @@ class CustomReward(Reward):
             self._lifting = False
 
         # Time penalty
-        if self._shaped:
-            reward -= self._time_penalty
-        else:
-            reward -= 0.01
+        reward -= self._time_penalty
 
         # Range out of bound penalty
         if (position[0] > 0.3) or (position[1] > 0.3):
@@ -85,7 +81,7 @@ class CustomReward(Reward):
             reward -= self._out_penalty * 3
 
         # Poor grasp
-        if self._old_gripper_close ^ self._robot.gripper_close:
+        if self._old_gripper_close == False and self._robot.gripper_close == True:
             reward -= self._close_penalty
 
         self._old_gripper_close = self._robot.gripper_close

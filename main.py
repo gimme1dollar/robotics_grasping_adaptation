@@ -23,6 +23,41 @@ import argparse
 import wandb
 import warnings
 
+def env_test() :
+    # config
+    config = io_utils.load_yaml("config/gripper.yaml")
+    visualize = config.get('visualize', True) 
+
+    # build env
+    env = gym.make('gripper-env-v0', config=config)
+    env.reset()
+    action_shape = env.action_space.shape
+
+    # test
+    passed = 0    
+    while (True) :
+
+        def get_grasp_position_angle(object_id):
+            position, grasp_angle = np.zeros((3, 1)), 0
+            # ========= PART 2============
+            # Get position and orientation (yaw in radians) of the gripper for grasping
+            # ==================================
+            position, orientation = p.getBasePositionAndOrientation(object_id)
+            grasp_angle = p.getEulerFromQuaternion(orientation)[2]
+            return position, grasp_angle
+
+        object_id = env._scene._objects_body_ids[0]
+        position, grasp_angle = get_grasp_position_angle(object_id)
+        
+        for i in range(500):
+            
+            # Test for grasping success (this test is a necessary condition, not sufficient):
+            target_joint = env.get_inverse(np.random.rand(3), np.random.rand(1))
+            env.step(target_joint)
+            
+        env.reset()
+        print()
+
 def ddpg_test():
     wandb.init(project="grasping_ddpg")
     warnings.filterwarnings("ignore")
@@ -106,7 +141,7 @@ def ddpg_test():
             #exit()
 
 def sac_test():
-    wandb.init(project="grasping_sac")
+    #wandb.init(project="grasping_sac")
     warnings.filterwarnings("ignore")
 
     # config
@@ -122,7 +157,9 @@ def sac_test():
     env.close()
 
 def main(args):
-    if args.exp_algo == "ddpg":
+    if args.exp_algo == "test":
+        env_test()
+    elif args.exp_algo == "ddpg":
         ddpg_test()
     elif args.exp_algo == "sac":
         sac_test()
