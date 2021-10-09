@@ -1,0 +1,89 @@
+# Simulation parameters
+simulation:
+  real_time: False
+  visualize: True
+  time_horizon: 300
+  
+  # Experimental setup parameters
+  scene:
+    scene_type: OnFloor # [OnTable, OnFloor]
+    data_set: random_urdfs # objects
+
+# Robot parameters
+robot:
+  model_path: assets/gripper/wsg50_one_motor_gripper_new.sdf
+
+  max_translation: 0.03
+  max_yaw_rotation: 0.15
+  max_force: 100
+
+# Sensor parameters
+sensor:
+  camera_info: 
+    height: 64
+    width: 64
+    K: [69.76, 0.0, 32.19, 0.0, 77.25, 32.0, 0.0, 0.0, 1.0]
+    near: 0.02
+    far: 2.0
+  transform: 
+    translation: [0.0, 0.0573, 0.0451]
+    rotation: [0.0, -0.1305, 0.9914, 0.0]
+  encoder_dir: config/encoder.yaml
+  encode: False
+  visualize: True
+
+  # Randomize camera parameters
+  randomize:
+    focal_length: 4
+    optical_center: 2
+    translation: 0.002
+    rotation: 0.0349
+  
+  # Encoder parameters
+  encoder:
+    network: [
+      {in_channel: 3, out_channel: 32, kernel_size: 3, stride: 1, padding: 1},
+      {in_channel: 32, out_channel: 16, kernel_size: 3, stride: 1, padding: 1},
+      {in_channel: 16, out_channel: 8, kernel_size: 3, stride: 1, padding: 1},
+      {in_channel: 8, out_channel: 1, kernel_size: 1, stride: 1, padding: 0}
+    ]
+    encoding_dim: 100
+    learning_rate: 0.0002
+    batch_size: 128
+    epochs: 120
+    data_path: ~/ActionBranchingDQN/new_gripper_onfloor_imgs.pkl
+
+
+# Reward parameters
+reward:
+  custom: True
+  shaped: True
+  terminal_reward: 5_000_000.
+  # lift_success: 1000.
+  grasp_reward: 100_000.
+  delta_z_scale: 100.
+  close_penalty: 1000.
+  out_penalty: 1000.
+  time_penalty: 10.
+  table_clearing: False # False - picks only one item. With True the episode terminates after each objects are cleared. Table clearing works better with the curriculum parameter max object [1, 5] 
+
+
+# MDP parameters
+discount_factor: 0.99
+normalize: False  #normalize the input and rewards
+
+DDPG:
+  batch_size: 32
+  tau: 0.1
+  gamma: 0.99
+  epsilon_start: 5
+  epsilon_end: 0
+  epsilon_decay: 200
+
+SAC:
+  max_iters: 10
+  batch_size: 32
+  layers: [64, 64]
+  buffer_size: 10000
+  step_size: 0.000001
+  total_timesteps: 1_000_000
