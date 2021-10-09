@@ -1,6 +1,6 @@
 import numpy as np
 import sys, os; sys.path.append(os.path.abspath(os.path.join('..', 'JUMP')))
-from agent.common import io_utils
+from agent.utils import io_utils
 
 import torch
 import torch.nn as nn
@@ -112,10 +112,10 @@ if __name__ == '__main__':
     
     import gym
     import agent
-    from agent.common import io_utils
+    from agent.utils import io_utils
 
-    config = io_utils.load_yaml("config/gripper.yaml")
-    env = gym.make("gripper-env-v0", config=config)
+    config = io_utils.load_yaml("config/robot.yaml")
+    env = gym.make("grasping-env-v0", config=config)
     total_timestep=100_000
 
     img_h, img_w, img_c = 64, 64, 5

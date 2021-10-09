@@ -4,13 +4,13 @@ This file mainly extends the existing utilies from the [tf](https://github.com/r
 package with conversions between different formats.
 """
 
-from agent.common.transformations import *
+from agent.utils.transformations import *
 
 import logging
 
 import numpy as np
 
-from agent.common import io_utils
+from agent.utils import io_utils
 
 
 def from_pose(translation, rotation):
@@ -78,7 +78,7 @@ def to_dict(transform):
     return {'translation': translation, 'rotation': rotation}
 
 
-def from_yaml(file_path):
+def from_yaml(cfg):
     """Read a transform from a yaml file.
 
     Example of the content of such a file:
@@ -93,7 +93,6 @@ def from_yaml(file_path):
     Returns:
         A 4x4 homogeneous transformation matrix.
     """
-    cfg = io_utils.load_yaml(file_path)
     return from_dict(cfg['transform'])
 
 

@@ -4,7 +4,7 @@ import numpy as np
 import pybullet_data
 import time
 from abc import ABC, abstractmethod
-from agent.common import transform_utils
+from agent.utils import transform_utils
 
 class BaseScene(ABC):
     def __init__(self, world, config, rng, test=False, validate=False):
@@ -19,7 +19,7 @@ class BaseScene(ABC):
         object_samplers = {'wooden_blocks': self._sample_wooden_blocks,
                            'random_urdfs': self._sample_random_objects}
         self._object_sampler = object_samplers[config['scene']['data_set']]
-        print("dataset", config['scene']['data_set'])
+        #print("dataset", config['scene']['data_set'])
 
     def _sample_wooden_blocks(self, n_objects):
         self._model_path = "assets/"
@@ -77,29 +77,8 @@ class OnTable(BaseScene):
         self._world.run(1.)
 
 class OnFloor(BaseScene):
-    """Curriculum paper setup."""
-    def reset(self):
-        self.plane_path = 'plane.urdf'
-        plane_urdf = os.path.join("assets", self.plane_path)
-        self._world.add_model(plane_urdf, [0., 0., -0.196], [0., 0., 0., 1.])
-        # Sample random objects
-        n_objects = self._rng.randint(self.min_objects, self.max_objects + 1)
-        urdf_paths, scale = self._object_sampler(n_objects)
-        
-        # Spawn objects
-        for path in urdf_paths:
-            position = np.r_[self._rng.uniform(-self.extent, self.extent, 2), 0.1]
-            orientation = transform_utils.random_quaternion(self._rng.rand(3))
-            self._world.add_model(path, position, orientation, scaling=scale)
-            self._world.run(0.4)
-
-        # Wait for the objects to rest
-        self._world.run(1.)
-
-class WithBody(BaseScene):
     # 3D workspace for tote 1
     def reset(self):
-        print("withbody reset")
         self._workspace1_bounds = np.array([
             [0.38, 0.62],  # 3x2 rows: x,y,z cols: min,max
             [-0.22, 0.22],
@@ -134,8 +113,6 @@ class WithBody(BaseScene):
             self._objects_body_ids.append(object_body_id)
             p.changeVisualShape(object_body_id, -1, rgbaColor=[*self._object_colors[i], 1])
         self.reset_objects()
-
-        print("withbody reset out")
             
     def reset_objects(self):
         for object_body_id in self._objects_body_ids:

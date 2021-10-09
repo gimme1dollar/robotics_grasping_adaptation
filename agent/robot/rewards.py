@@ -1,4 +1,4 @@
-from agent.gripperEnv import robot
+from agent.robot import robot
 
 class Reward:
     """Simple reward function reinforcing upwards movement of grasped objects."""

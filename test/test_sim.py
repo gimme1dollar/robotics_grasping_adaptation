@@ -12,11 +12,11 @@ CONFIG_CONT_SIMP = 'test/config/test_simplified_cont.yaml'
 #CONFIG_ENCODER_SIMP = 'tests_gripper/config/test_encoder_simp.yaml'
 #CONFIG_ENCODER = 'tests_gripper/config/test_encoder.yaml'
 
-env_continous = gym.make('gripper-env-v0', config=CONFIG_CONT)
-env_discrete = gym.make('gripper-env-v0', config=CONFIG_DISCRETE)
-env_cont_simp = gym.make('gripper-env-v0', config=CONFIG_CONT_SIMP)
-#env_encoder_simp = gym.make('gripper-env-v0', config=CONFIG_ENCODER_SIMP)
-#env_encoder = gym.make('gripper-env-v0', config=CONFIG_ENCODER)
+env_continous = gym.make('grasping-env-v0', config=CONFIG_CONT)
+env_discrete = gym.make('grasping-env-v0', config=CONFIG_DISCRETE)
+env_cont_simp = gym.make('grasping-env-v0', config=CONFIG_CONT_SIMP)
+#env_encoder_simp = gym.make('grasping-env-v0', config=CONFIG_ENCODER_SIMP)
+#env_encoder = gym.make('grasping-env-v0', config=CONFIG_ENCODER)
 ENVS_LIST = [env_continous, env_discrete, env_cont_simp] #, env_encoder_simp, env_encoder]
 
 

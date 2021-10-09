@@ -7,8 +7,8 @@ import numpy as np
 import pybullet as p
 #import tensorflow as tf
 
-from agent.common import io_utils, transform_utils, camera_utils
-from agent.gripperEnv import encoder
+from agent.utils import io_utils, transform_utils, camera_utils
+from agent.robot import encoder
 
 class RGBDSensor:
     """Collects synthetic RGBD images of the scene.
@@ -22,31 +22,16 @@ class RGBDSensor:
     def __init__(self, config, robot, randomize=True):
         self._physics_client = robot.physics_client
         self._robot = robot
-        full_obs = config.get('full_observation', False)
-        intrinsics_path = config['camera_info']
-        extrinsics_path = config['transform']
-        extrinsics_dict = io_utils.load_yaml(extrinsics_path)
 
-        self._camera_info = io_utils.load_yaml(intrinsics_path)
-        self._transform = transform_utils.from_dict(extrinsics_dict)
+        self._camera_info = config['camera_info']
+        self._transform  = config['transform']
+        self._transform = transform_utils.from_dict(self._transform)
 
         self._randomize = config.get('randomize', None) if randomize else None
         self._construct_camera(self._camera_info, self._transform)
 
-        self.state_space = gym.spaces.Box(low=0, high=1,
-                shape=(self.camera.info.height, self.camera.info.width, 1))
-        if full_obs:
-            #RGB + Depth
-            self.state_space = gym.spaces.Box(low=0, high=255,
-                shape=(self.camera.info.height, self.camera.info.width, 5))
-        #TODO: Check for the config parameter to decide if depth or rgb is used
-        # RGB output
-        # self.state_space = gym.spaces.Box(low=0, high=255,
-        #   shape=(self.camera.info.height, self.camera.info.width, 3))
-
-        # Depth sensor state space 
-        # self.state_space = gym.spaces.Box(low=0, high=1,
-        #   shape=(self.camera.info.height, self.camera.info.width, 1))
+        self.state_space = gym.spaces.Box(low=0, high=255,
+            shape=(self.camera.info.height, self.camera.info.width, 5))
 
 
     def reset(self):
