@@ -7,9 +7,9 @@ from itertools import count
 import gym
 import agent
 from model import DDPG, SAC
-from agent.common import io_utils
-from agent.gripperEnv.robot import RobotEnv
-from agent.gripperEnv.encoder import AutoEncoder, embed_state
+from agent.utils import io_utils
+from agent.robot.robot import RobotEnv
+from agent.robot.encoder import AutoEncoder, embed_state
 
 import stable_baselines3 as sb
 from stable_baselines3.sac.policies import MlpPolicy 
@@ -25,11 +25,11 @@ import warnings
 
 def env_test() :
     # config
-    config = io_utils.load_yaml("config/gripper.yaml")
+    config = io_utils.load_yaml("config/robot.yaml")
     visualize = config.get('visualize', True) 
 
     # build env
-    env = gym.make('gripper-env-v0', config=config)
+    env = gym.make('grasping-env-v0', config=config)
     env.reset()
     action_shape = env.action_space.shape
 
@@ -52,22 +52,22 @@ def env_test() :
         for i in range(500_000_000):
             
             # Test for grasping success (this test is a necessary condition, not sufficient):
-            target_joint = env.get_inverse(np.random.rand(3), np.random.rand(1))
+            target_joint = np.random.rand(6)
             env.step(target_joint)
             
         env.reset()
         print()
 
 def ddpg_test():
-    wandb.init(project="grasping_ddpg")
+    #wandb.init(project="grasping_ddpg")
     warnings.filterwarnings("ignore")
 
     # config
-    config = io_utils.load_yaml("config/gripper.yaml")
+    config = io_utils.load_yaml("config/robot.yaml")
     visualize = config.get('visualize', True) 
 
     # build env
-    env = gym.make("gripper-env-v0", config=config)
+    env = gym.make("grasping-env-v0", config=config)
     cur_state = env.reset()
 
     # encoder
@@ -84,10 +84,10 @@ def ddpg_test():
     action_max = float(env.action_space.high[0])
 
     #state_dim = img_h * img_w * img_c
-    agent = DDPG(state_dim, action_dim, action_max, config.get('DDPG'))
+    agent = DDPG.DDPG(state_dim, action_dim, action_max, config['DDPG'])
     #agent.load_weight("./checkpoints/ddpg/agent_000195_.pth")
-    wandb.watch(agent.actor_agent)
-    wandb.watch(agent.critic_agent)
+    #wandb.watch(agent.actor_agent)
+    #wandb.watch(agent.critic_agent)
 
     # main loop
     max_episode = 500_000
@@ -125,11 +125,11 @@ def ddpg_test():
         print(f"Episode: {epoch:7d} Total Reward: {total_reward:7.2f}\t", end=" ")
         print(f"Epsilon: {agent.epsilon:1.2f} \t", end=" ")
         print(f"Position: {info['position']} \tSuccess: {success_rate:0.2f} \t{info['status']}")
-        wandb.log({"epoch"        : epoch})
-        wandb.log({"total_step"   : total_step})
-        wandb.log({"success_rate" : success_rate})
-        wandb.log({"epsilon"      : agent.epsilon})
-        wandb.log({"reward/total" : total_reward})
+        #wandb.log({"epoch"        : epoch})
+        #wandb.log({"total_step"   : total_step})
+        #wandb.log({"success_rate" : success_rate})
+        #wandb.log({"epsilon"      : agent.epsilon})
+        #wandb.log({"reward/total" : total_reward})
 
         # agent traning with warm start
         if epoch > 0:
@@ -145,15 +145,14 @@ def sac_test():
     warnings.filterwarnings("ignore")
 
     # config
-    config = io_utils.load_yaml("config/gripper.yaml")
-    visualize = config.get('visualize', True) 
+    config = io_utils.load_yaml("config/robot.yaml")
 
     # build env
-    env = gym.make('gripper-env-v0', config=config)
+    env = gym.make('grasping-env-v0', config=config)
 
     # encoder
-    sb_help = SAC.SBPolicy(env, env, config)
-    sb_help.learn()
+    sac = SAC.SAC(env, env, config)
+    sac.learn()
     env.close()
 
 def main(args):
