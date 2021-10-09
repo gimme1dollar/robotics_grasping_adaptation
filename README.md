@@ -23,8 +23,10 @@ conda install pytorch torchvision cudatoolkit=11.1 -c pytorch -c conda-forge
 pip install -r requirements.txt
 ```
 
-- robot configuration       
+- robot configuration (references)       
 https://github.com/BarisYazici/deep-rl-grasping     
+https://github.com/lzylucy/graspGripper
+
 ```
 pytest test
 ```
@@ -40,15 +42,15 @@ pytest test
 <img src="demo/sac_pseudo.png" width="350px">
 </p>
 
-## Demo 
-- ddpg (pendulum)
+- Domain_adaptation pseudo algorithm
 <p align="center">
-<img src="demo/pendulum.png" width="350px">
-</p>
-<p align="center">
-<img src="demo/ddpg_pendulum.png" width="400px" height="200px">
+(Currently Working...)
 </p>
 
+## Demo 
+```
+python main.py --exp-algo <algo_name>
+```
 - ddpg (pybullet/gripper)    
   achieved upto 0.9 success rate (among latest 10 trial)
 <p align="center">
@@ -61,7 +63,7 @@ pytest test
 <img src="demo/ddpg_grasping_success.png" width="400px">
 </p>
 
-- SAC (pybullet/arm)    
+- sac (pybullet/arm)    
 <p align="center">
 <img src="demo/pybullet_arm.PNG" width="350px">
 </p>  
