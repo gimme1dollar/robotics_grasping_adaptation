@@ -1,12 +1,13 @@
 from enum import Enum
 import pybullet as p
+import numpy as np
 import time
 import gym
 
 from gym.utils import seeding
 from numpy.random import RandomState
-from agent.simulation.model import Model
-from agent.simulation import scene
+from agent.world.model import Model
+from agent.world import scene
 from pybullet_utils import bullet_client
 #from numba import cuda
 
@@ -27,13 +28,13 @@ class World(gym.Env):
         self._rng = self.seed(evaluate=evaluate)
         config = config['simulation']
         config_scene = config['scene']
-        self.scene_type = config_scene.get('scene_type', "WithBody")
+        self.scene_type = config_scene['scene_type']
+        print(self.scene_type)
         if self.scene_type == "OnTable":
             self._scene = scene.OnTable(self, config, self._rng, test, validate)
         elif self.scene_type == "OnFloor":
             self._scene = scene.OnFloor(self, config, self._rng, test, validate)
-        elif self.scene_type == "WithBody":
-            self._scene = scene.OnFloor(self, config, self._rng, test, validate)
+        print(self._scene)
 
         self.sim_time = 0.
         self._time_step = 1. / 240.
@@ -45,9 +46,6 @@ class World(gym.Env):
         self._real_time = config.get('real_time', True)
         self.physics_client = bullet_client.BulletClient(
             p.GUI if visualize else p.DIRECT)
-
-        # set gravity
-        p.setGravity(0, 0, -9.8)
         
         self.models = []
         self._callbacks = {World.Events.RESET: [], World.Events.STEP: []}
@@ -62,14 +60,15 @@ class World(gym.Env):
         self.models.append(model)
         return model
 
-    def step_sim(self):
+    def step_sim(self, num_steps):
         """Advance the simulation by one step."""
-        self.physics_client.stepSimulation()
+        for i in range(int(num_steps)):
+            p.stepSimulation()
+            
         # self._trigger_event(World.Events.STEP)
         self.sim_time += self._time_step
         if self._real_time:
-            time.sleep(max(0., self.sim_time -
-                       time.time() + self._real_start_time))
+            time.sleep(max(0., self.sim_time - time.time() + self._real_start_time))
 
     def reset_sim(self):
         # self._trigger_event(World.Events.RESET) # Trigger reset func
@@ -78,6 +77,8 @@ class World(gym.Env):
             fixedTimeStep=self._time_step,
             numSolverIterations=self._solver_iterations,
             enableConeFriction=1)
+        
+        # set gravity
         self.physics_client.setGravity(0., 0., -9.81)    
         self.models = []
         self.sim_time = 0.
@@ -154,3 +155,53 @@ class World(gym.Env):
             return self.physics_client.getNumBodies() - 2
         else:
             return self.physics_client.getNumBodies()
+
+    def reset_objects(self):
+        # - possible object colors
+        self._object_colors = self.get_tableau_palette()
+
+        # - Define possible object shapes
+        self._object_shapes = [
+            "assets/objects/cube.urdf",
+            "assets/objects/rod.urdf",
+            "assets/objects/custom.urdf",
+        ]
+
+        self._num_objects = len(self._object_shapes)
+        self._object_shape_ids = [
+            i % len(self._object_shapes) for i in range(self._num_objects)]
+        self._objects_body_ids = []
+        for i in range(self._num_objects):
+            object_body_id = p.loadURDF(self._object_shapes[i], [ 0.5, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
+            self._objects_body_ids.append(object_body_id)
+            p.changeVisualShape(object_body_id, -1, rgbaColor=[*self._object_colors[i], 1])
+            
+        # set objects
+        for object_body_id in self._objects_body_ids:
+            random_position = np.random.random_sample((3))*(self._scene._workspace_bounds[:, 1]-(
+                self._scene._workspace_bounds[:, 0]+0.1))+self._scene._workspace_bounds[:, 0]+0.1
+            random_orientation = np.random.random_sample((3))*2*np.pi-np.pi
+            p.resetBasePositionAndOrientation(
+                object_body_id, random_position, p.getQuaternionFromEuler(random_orientation))
+
+    def get_tableau_palette(self):
+        """
+        returns a beautiful color palette
+        :return palette (np.array object): np array of rgb colors in range [0, 1]
+        """
+        palette = np.array(
+            [
+                [89, 169, 79],  # green
+                [156, 117, 95],  # brown
+                [237, 201, 72],  # yellow
+                [78, 121, 167],  # blue
+                [255, 87, 89],  # red
+                [242, 142, 43],  # orange
+                [176, 122, 161],  # purple
+                [255, 157, 167],  # pink
+                [118, 183, 178],  # cyan
+                [186, 176, 172]  # gray
+            ],
+            dtype=np.float
+        )
+        return palette / 255.

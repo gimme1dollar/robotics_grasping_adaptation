@@ -79,68 +79,15 @@ class OnTable(BaseScene):
 class OnFloor(BaseScene):
     # 3D workspace for tote 1
     def reset(self):
-        self._workspace1_bounds = np.array([
+        self._workspace_bounds = np.array([
             [0.38, 0.62],  # 3x2 rows: x,y,z cols: min,max
             [-0.22, 0.22],
             [0.00, 0.5]
         ])
-        # 3D workspace for tote 2
-        self._workspace2_bounds = np.copy(self._workspace1_bounds)
-        self._workspace2_bounds[0, :] = - self._workspace2_bounds[0, ::-1]
 
         # load environment
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         self._plane_id = p.loadURDF("plane.urdf")
         p.setGravity(0, 0, -9.8)
 
-        # Load objects
-        # - possible object colors
-        self._object_colors = self.get_tableau_palette()
-
-        # - Define possible object shapes
-        self._object_shapes = [
-            "assets/objects/cube.urdf",
-            "assets/objects/rod.urdf",
-            "assets/objects/custom.urdf",
-        ]
-
-        self._num_objects = len(self._object_shapes)
-        self._object_shape_ids = [
-            i % len(self._object_shapes) for i in range(self._num_objects)]
-        self._objects_body_ids = []
-        for i in range(self._num_objects):
-            object_body_id = p.loadURDF(self._object_shapes[i], [ 0.5, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
-            self._objects_body_ids.append(object_body_id)
-            p.changeVisualShape(object_body_id, -1, rgbaColor=[*self._object_colors[i], 1])
-        self.reset_objects()
-            
-    def reset_objects(self):
-        for object_body_id in self._objects_body_ids:
-            random_position = np.random.random_sample((3))*(self._workspace1_bounds[:, 1]-(
-                self._workspace1_bounds[:, 0]+0.1))+self._workspace1_bounds[:, 0]+0.1
-            random_orientation = np.random.random_sample((3))*2*np.pi-np.pi
-            p.resetBasePositionAndOrientation(
-                object_body_id, random_position, p.getQuaternionFromEuler(random_orientation))
-        #self.step_simulation(2e2)
-
-    def get_tableau_palette(self):
-        """
-        returns a beautiful color palette
-        :return palette (np.array object): np array of rgb colors in range [0, 1]
-        """
-        palette = np.array(
-            [
-                [89, 169, 79],  # green
-                [156, 117, 95],  # brown
-                [237, 201, 72],  # yellow
-                [78, 121, 167],  # blue
-                [255, 87, 89],  # red
-                [242, 142, 43],  # orange
-                [176, 122, 161],  # purple
-                [255, 157, 167],  # pink
-                [118, 183, 178],  # cyan
-                [186, 176, 172]  # gray
-            ],
-            dtype=np.float
-        )
-        return palette / 255.
+        
