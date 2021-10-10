@@ -31,7 +31,7 @@ def env_test() :
     # build env
     env = gym.make('grasping-env-v0', config=config)
     env.reset()
-    action_shape = env.action_space.shape
+    action_shape = env.action_space.shape[0]
 
     # test
     passed = 0    
@@ -46,16 +46,20 @@ def env_test() :
             grasp_angle = p.getEulerFromQuaternion(orientation)[2]
             return position, grasp_angle
 
-        object_id = env._scene._objects_body_ids[0]
+        object_id = env._objects_body_ids[0]
         position, grasp_angle = get_grasp_position_angle(object_id)
         
-        for i in range(500_000_000):
+        for _ in range(500_000_000):
+            for _ in range(300):
+                target_joint = np.random.rand(action_shape)
             
-            # Test for grasping success (this test is a necessary condition, not sufficient):
-            target_joint = np.random.rand(6)
-            env.step(target_joint)
+                #target_joint = env.position_to_joints(position, grasp_angle)
+                #target_joint = [t for t in target_joint]
+                #target_joint.append(np.random.rand(1)[0])
+
+                env.step(target_joint)
             
-        env.reset()
+            env.reset()
         print()
 
 def ddpg_test():
@@ -64,7 +68,6 @@ def ddpg_test():
 
     # config
     config = io_utils.load_yaml("config/robot.yaml")
-    visualize = config.get('visualize', True) 
 
     # build env
     env = gym.make("grasping-env-v0", config=config)
