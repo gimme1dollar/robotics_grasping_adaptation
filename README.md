@@ -9,15 +9,16 @@ Domain adaptation on robot grasping
 - nvidia-dirver 461.72
 - cuda 11.1
 - cuDNN 8.0.5
+- python 3.8
+- pybullet 2.6.4
 - pytorch 1.9.1
 - torchvision 0.10.1
-- pybullet 2.6.4
 - stable_baseline 3
 ```
 - installation 
 ```
 git clone <url_repo> <dir_name>
-conda create -n <env_name> python=3.8
+conda create -n <env_name> 
 conda activate <env_name> 
 conda install pytorch torchvision cudatoolkit=11.1 -c pytorch -c conda-forge
 pip install -r requirements.txt

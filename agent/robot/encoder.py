@@ -50,7 +50,7 @@ class AutoEncoder(nn.Module):
         super(AutoEncoder, self).__init__()
         model_dir = os.path.expanduser(model_dir)
         self.model_path = os.path.join(model_dir, 'encoder.pth')
-        config = io_utils.load_yaml(config['sensor']['encoder_dir'])
+        config = config['sensor']['encoder']
         network = config['network']
 
         encoders = []
@@ -116,6 +116,7 @@ if __name__ == '__main__':
 
     config = io_utils.load_yaml("config/robot.yaml")
     env = gym.make("grasping-env-v0", config=config)
+    env.reset()
     total_timestep=100_000
 
     img_h, img_w, img_c = 64, 64, 5
@@ -168,9 +169,9 @@ if __name__ == '__main__':
     '''
 
     plt.ion()
-    model.load_weight("./checkpoints/encoder_000018_.pth")
+    model.load_weight("./checkpoints/ddpg/encoder_000018_.pth")
     while True:
-        action = np.random.rand(5)
+        action = np.random.rand(action_shape[0])
         action = action * (action_max - action_min) + action_min
         obs, reward, done, _ = env.step(action)
         obs = embed_state(obs)        
