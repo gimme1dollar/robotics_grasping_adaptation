@@ -54,7 +54,7 @@ class CustomReward(Reward):
         det_mask = self._robot.object_detected()
         det_objects = np.unique(det_mask)
         det_target = self._target_id in det_objects
-        reward += self._detect_reward * len(det_objects)
+        reward += self._detect_reward * np.clip(len(det_objects), 0, 3)
         if det_target: 
             reward += self._detect_reward * 5 
             #print(f"reward on detection: {reward}")
@@ -78,8 +78,8 @@ class CustomReward(Reward):
 
         if self._lifting and robot_pos[2] > 0.1 and object_pos[2] > 0.1:
             #print(f"lifting up to {object_pos[2]}")
-            print(f"*** success, rewarding {reward} ***")
-            return reward, robot.RobotEnv.Status.SUCCESS
+            #print(f"*** success, rewarding {reward} ***")
+            return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
 
         # Penalty on poor grasping
         if self._old_gripper_close == False and self._robot._actuator.gripper_close == True:

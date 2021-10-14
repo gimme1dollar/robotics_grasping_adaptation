@@ -23,7 +23,7 @@ import argparse
 import wandb
 import warnings
 
-def env_test() :
+def manual_test() :
     # config
     config = io_utils.load_yaml("config/robot.yaml")
     visualize = config.get('visualize', True) 
@@ -31,7 +31,6 @@ def env_test() :
     # build env
     env = gym.make('grasping-env-v0', config=config)
     env.reset()
-    action_shape = env.action_space.shape[0]
 
     # test
     passed = 0    
@@ -47,22 +46,10 @@ def env_test() :
             return position, grasp_angle
 
         
-        for _ in range(500_000_000):
+        for _ in range(100):
             object_id = env.objects[0]
             position, grasp_angle = get_grasp_position_angle(object_id)
             env.manual_control(position, grasp_angle)
-
-            '''
-            for _ in range(300):
-                #target_joint = np.random.rand(action_shape)
-            
-                #target_joint = env.position_to_joints(position, grasp_angle)
-                #target_joint = [t for t in target_joint]
-                #target_joint.append(np.random.rand(1)[0])
-
-                #env.step(target_joint)
-            '''
-            
             env.reset()
         print()
 
@@ -163,8 +150,8 @@ def sac_test():
     env.close()
 
 def main(args):
-    if args.exp_algo == "test":
-        env_test()
+    if args.exp_algo == "manual":
+        manual_test()
     elif args.exp_algo == "ddpg":
         ddpg_test()
     elif args.exp_algo == "sac":
@@ -172,8 +159,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--exp-algo', type=str, default='sac',
-                        help='Name of the algorithm (default: sac)')
+    parser.add_argument('--exp-algo', type=str, default='manual',
+                        help='Name of the algorithm (default: manual)')
 
     args = parser.parse_args()
     main(args)

@@ -7,7 +7,7 @@ simulation:
   # Experimental setup parameters
   scene:
     scene_type: OnFloor # [OnTable, OnFloor, OnTote]
-    object_num: 1
+    object_num: 15
 
 # Robot parameters
 robot:
@@ -57,13 +57,13 @@ sensor:
 reward:
   #custom: True
   #shaped: True
-  terminal_reward: 500. # lift only target objects
-  lift_reward: 300. # lift any any of the objects
+  terminal_reward: 3000. 
+  lift_reward: 300. # lift target object
   grasp_reward: 100.
   detect_reward: 10. # detected from segmentation mask
   close_penalty: 10.
   out_penalty: 10.
-  time_penalty: 10.
+  time_penalty: 100.
 
 
 # MDP parameters

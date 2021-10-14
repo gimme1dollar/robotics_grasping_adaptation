@@ -18,7 +18,7 @@ class World(gym.Env):
         STEP = 1
 
     def __init__(self, config, evaluate, test, validate):
-        print("world init")
+        #print("world init")
         """Initialize a new simulated world.
 
         Args:
@@ -205,32 +205,3 @@ class World(gym.Env):
             return self.physics_client.getNumBodies() - 2
         else:
             return self.physics_client.getNumBodies()
-
-    def find_highest(self):
-        highest = -float('inf')
-        model_id = -1
-        for obj in self.models[1:len(self.models)-1]:
-            if obj:
-                pos, _ = obj.getBase()
-                if pos[2] > highest: 
-                    highest = pos[2]
-                    model_id = obj.model_id
-        return model_id
-
-    def find_higher(self, lift_dist):
-        #TODO make robust
-        #FIXME not working with small lift distance
-        if self.scene_type == "OnTable":
-            thres_height = self.models[2].getBase()[0][2]
-        else:
-            thres_height = self.models[0].getBase()[0][2]
-
-        grabbed_objs = []
-        for obj in self.models[1:len(self.models)-1]:
-            if obj:
-                pos, _ = obj.getBase()
-                # print("height", pos[2])
-                # print("threshold", thres_height + lift_dist)
-                if pos[2] > (thres_height + lift_dist):
-                    grabbed_objs.append(obj.model_id)
-        return grabbed_objs

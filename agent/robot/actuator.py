@@ -27,7 +27,6 @@ class Actuator:
         return
 
     def _act(self, target, speed=0.03):
-        #print(target)
         assert len(self.robot._robot_joint_indices) + 1 == len(target)
         
         # Body torque control
@@ -81,17 +80,16 @@ class Actuator:
     ## Gripper
     def close_gripper(self):
         self.gripper_close = True
-        p.setJointMotorControl2(self.robot._robot_gripper_id, 1, p.VELOCITY_CONTROL, targetVelocity=10, force=10)
+        p.setJointMotorControl2(self.robot._robot_gripper_id, 1, p.VELOCITY_CONTROL, targetVelocity=10, force=1000)
 
         return
 
     def open_gripper(self):
         self.gripper_close = False
-        p.setJointMotorControl2(self.robot._robot_gripper_id, 1, p.VELOCITY_CONTROL, targetVelocity=-10, force=10)
+        p.setJointMotorControl2(self.robot._robot_gripper_id, 1, p.VELOCITY_CONTROL, targetVelocity=-10, force=1000)
 
         return
     
     def get_gripper_width(self):
-        #print("get_gripper_width")
         """Query the current opening width of the gripper."""
         return p.getJointState(self.robot._robot_gripper_id, 1)[0]
