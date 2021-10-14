@@ -45,7 +45,7 @@ pytest test
 
 - Domain_adaptation pseudo algorithm
 <p align="center">
-(Currently Working...)
+(Currently Working)
 </p>
 
 ## Demo 

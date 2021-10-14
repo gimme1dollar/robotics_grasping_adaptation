@@ -167,16 +167,12 @@ class RobotEnv(World):
         else:
             done = False
         
-        position, _ = self.get_pose()
-        is_in_bound = "in" if (position[0] < 0.3) and (position[1] < 0.3) and (position[2] < 0.25) and (position[2] > 0) else "out"
-
         self.episode_step += 1
         self.state = new_state
 
         if done:
             self.trigger_event(RobotEnv.Events.END_OF_EPISODE, self)
-        #return self.obs, reward, done, {"is_success":self.status==RobotEnv.Status.SUCCESS, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards, "status": self.status}
-        return self.state, reward, done, {"status": self.status, "position": is_in_bound}
+        return self.state, reward, done, {"status": self.status, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards}
         
 
     ## Observe
@@ -185,15 +181,18 @@ class RobotEnv(World):
 
         # TODO: better joints matrix
         joints = self._actuator.get_state()
-        #joints.append(0)
-        #joints = [ joints * 8 for _ in range(64) ]
 
         observation = np.dstack((rgb, depth, mask))
         return observation
 
-    def get_pose(self):
+    def robot_pose(self):
         return self._gripper.get_pose()
 
+    def camera_pose(self):
+        pos, orn = self._gripper.get_pose()
+        pos = tuple(map(sum, zip(pos, (0.00, 0.00, 0.25))))
+        orn = tuple(map(sum, zip(orn, (0.00, 0.00, 0.00, 0.00))))
+        return (pos, orn)
 
     def object_detected(self, tol=0.5):
         """Grasp detection by checking whether the fingers stalled while closing."""

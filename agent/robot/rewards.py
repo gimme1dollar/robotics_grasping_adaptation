@@ -28,7 +28,7 @@ class Reward:
         reward = 0.
         status = robot.RobotEnv.Status.RUNNING
 
-        position, _ = self._robot.get_pose()
+        position, _ = self._robot.robot_pose()
         robot_height = position[2]
         
         if self._robot.object_detected():
@@ -45,7 +45,7 @@ class Reward:
         return reward, status
 
     def reset(self):
-        position, _ = self._robot.get_pose()
+        position, _ = self._robot.robot_pose()
         self._old_robot_height = position[2]
 
 
@@ -53,7 +53,7 @@ class CustomReward(Reward):
     def __call__(self, obs, action, new_obs):
         reward = 0.
         
-        position, _ = self._robot.get_pose()
+        position, _ = self._robot.robot_pose()
         robot_height = position[2]
 
         # Time penalty
