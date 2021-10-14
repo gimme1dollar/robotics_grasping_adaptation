@@ -7,14 +7,14 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="custom_collision.obj" scale="1 1 1"/>
+        <mesh filename="custom.obj" scale="1 1 1"/>
       </geometry>
       <material name="Blanc"/>
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-	 	     <mesh filename="custom_collision.obj" scale="1 1 1"/>
+	 	     <mesh filename="custom.obj" scale="1 1 1"/>
       </geometry>
     </collision>
     <contact>
