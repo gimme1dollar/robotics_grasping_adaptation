@@ -197,9 +197,7 @@ class RobotEnv(World):
     def object_detected(self, tol=0.5):
         """Grasp detection by checking whether the fingers stalled while closing."""
         rgb, depth, mask = self._camera.get_state()
-        num_objects = len(np.unique(mask)) - 1
-        return num_objects
-
+        return mask
 
     ## Action
     def _act(self, target):

@@ -7,7 +7,7 @@ simulation:
   # Experimental setup parameters
   scene:
     scene_type: OnFloor # [OnTable, OnFloor, OnTote]
-    object_num: 15
+    object_num: 1
 
 # Robot parameters
 robot:
@@ -57,15 +57,13 @@ sensor:
 reward:
   #custom: True
   #shaped: True
-  terminal_reward: 5_000_000. # lift only target objects
-  lift_reward: 300_000. # lift any any of the objects
-  grasp_reward: 100_000.
-  detect_reward: 50_000. # detected from segmentation mask
-  close_penalty: 1000.
-  out_penalty: 1000.
+  terminal_reward: 500. # lift only target objects
+  lift_reward: 300. # lift any any of the objects
+  grasp_reward: 100.
+  detect_reward: 10. # detected from segmentation mask
+  close_penalty: 10.
+  out_penalty: 10.
   time_penalty: 10.
-  delta_z_scale: 100.
-  table_clearing: False # False - picks only one item. With True the episode terminates after each objects are cleared. Table clearing works better with the curriculum parameter max object [1, 5] 
 
 
 # MDP parameters

@@ -1,3 +1,6 @@
+import numpy as np
+import pybullet as p
+
 from agent.robot import robot
 
 class Reward:
@@ -5,21 +8,21 @@ class Reward:
 
     def __init__(self, config, robot):
         self._robot = robot
-        self._shaped = config.get('shaped', True)
 
-        self._max_delta_z = robot._actuator._max_translation
         self._terminal_reward = config['terminal_reward']
-        self._grasp_reward = config['grasp_reward']
         self._detect_reward = config['detect_reward']
-        self._delta_z_scale = config['delta_z_scale']
-        self._lift_success = config.get('lift_success', self._terminal_reward)
+        self._grasp_reward = config['grasp_reward']
+        self._lift_reward = config['lift_reward']
+
         self._time_penalty = config['time_penalty']
         self._out_penalty = config['out_penalty']
         self._close_penalty = config['close_penalty']
-        self.lift_dist = 0
-
+        
         # Placeholders
+        self._grasping = False
         self._lifting = False
+
+        # requisites
         self._start_height = None
         self._old_robot_height = None
         self._old_gripper_close = True
@@ -28,86 +31,66 @@ class Reward:
         reward = 0.
         status = robot.RobotEnv.Status.RUNNING
 
-        position, _ = self._robot.robot_pose()
-        robot_height = position[2]
-        
-        if self._robot.object_detected():
-            if not self._lifting:
-                self._start_height = robot_height
-                self._lifting = True
-
-            if robot_height - self._start_height > self.lift_dist:
-                status = robot.RobotEnv.Status.SUCCESS
-                return self._terminal_reward, status
-        else:
-            self._lifting = False
-
         return reward, status
 
     def reset(self):
         position, _ = self._robot.robot_pose()
+        self._grasping = False
         self._old_robot_height = position[2]
+
+        return
 
 
 class CustomReward(Reward):
     def __call__(self, obs, action, new_obs):
         reward = 0.
-        
-        position, _ = self._robot.robot_pose()
-        robot_height = position[2]
 
-        # Time penalty
-        reward -= self._time_penalty
+        # prerequisites
+        self._target_id = self._robot.objects[0]
+        object_pos, _ = p.getBasePositionAndOrientation(self._target_id)
+        robot_pos, _ = self._robot.robot_pose()
 
-        # Detection
-        det_objects = self._robot.object_detected()-1
-        reward += self._detect_reward * det_objects
+        # Reward on detection
+        det_mask = self._robot.object_detected()
+        det_objects = np.unique(det_mask)
+        det_target = self._target_id in det_objects
+        reward += self._detect_reward * len(det_objects)
+        if det_target: 
+            reward += self._detect_reward * 5 
+            #print(f"reward on detection: {reward}")
 
-        # Grasping
-        if self._robot.object_detected():
-            if not self._lifting:
-                self._start_height = robot_height
-                self._lifting = True
-
-            if robot_height - self._start_height > self.lift_dist:
-                print("success")
-                return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
-
-            # Intermediate rewards for lifting
+        # Reward on grasping
+        dist_object = np.linalg.norm(np.asarray(object_pos)-np.asarray(robot_pos))
+        if dist_object < 0.07:
+            self._grasping = True
             reward += self._grasp_reward
+            #print(f"reward on grasping: {reward} by {dist_object}")
+        else:
+            self._grasping = False
 
-            delta_z = robot_height - self._old_robot_height
-            reward += self._delta_z_scale * delta_z
+        # Reward on lifting
+        if self._grasping and robot_pos[2] > self._old_robot_height:
+            self._lifting = True
+            reward += self._lift_reward
+            #print(f"reward on lifting: {reward} by {robot_pos[2] - self._old_robot_height}")
         else:
             self._lifting = False
 
-        # Poor grasp
+        if self._lifting and robot_pos[2] > 0.1 and object_pos[2] > 0.1:
+            #print(f"lifting up to {object_pos[2]}")
+            print(f"*** success, rewarding {reward} ***")
+            return reward, robot.RobotEnv.Status.SUCCESS
+
+        # Penalty on poor grasping
         if self._old_gripper_close == False and self._robot._actuator.gripper_close == True:
             reward -= self._close_penalty
+            #print(f"penalty on poor grasping: {reward}")
 
-        # Lifting
-        if self._robot.object_detected():
-            if not self._lifting:
-                self._start_height = robot_height
-                self._lifting = True
+        # Penalty on time
+        reward -= self._time_penalty
+        #print(f"penalty on time: {reward}")
 
-            if robot_height - self._start_height > self.lift_dist:
-                return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
-
-            # Intermediate rewards for lifting
-            reward += self._grasp_reward
-
-            delta_z = robot_height - self._old_robot_height
-            reward += self._delta_z_scale * delta_z
-        else:
-            self._lifting = False
-
-        # Range out of bound penalty 
-        #if (position[0] > 0.3) or (position[1] > 0.3):
-        #    reward -= self._out_penalty
-        #if (position[2] > 0.25) or (position[2] < 0):
-        #    reward -= self._out_penalty * 3
-
+        # return
         self._old_gripper_close = self._robot._actuator.gripper_close
-        self._old_robot_height = robot_height
+        self._old_robot_height = robot_pos[2]
         return reward, robot.RobotEnv.Status.RUNNING
