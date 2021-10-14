@@ -34,6 +34,7 @@ class RobotEnv(World):
     def __init__(self, config, evaluate=False, test=False, validate=False):
         if not isinstance(config, dict):
             config = io_utils.load_yaml(config)
+        self.config = config
         
         super().__init__(config, evaluate=evaluate, test=test, validate=validate)
         self.status = None
@@ -51,7 +52,7 @@ class RobotEnv(World):
         self._robot_gripper_id = None
 
         # Assign the actuators
-        self._actuator = actuator.Actuator(config['robot'], self)
+        self._actuator = actuator.Actuator(config['policy'], self)
         self.action = None
 
         # Assign the sensors
@@ -62,7 +63,7 @@ class RobotEnv(World):
         # Assign the reward fn
         self._reward_fn = CustomReward(config['reward'], self)
         self.episode_step = 0
-        self.episode_rewards = 0
+        self.episode_rewards = -5000
 
         # Assign callbacks
         self._callbacks = {RobotEnv.Events.START_OF_EPISODE: [],
@@ -73,7 +74,7 @@ class RobotEnv(World):
 
         # Setup for spaces
         shape = self._camera.state_space.shape
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(shape[0], shape[1], 6))
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(shape[0], shape[1], 5))
         self.action_space = self._actuator.action_space
 
 
@@ -96,6 +97,7 @@ class RobotEnv(World):
         self.episode_step = 0
         self.episode_rewards = 0
         self.status = RobotEnv.Status.RUNNING
+        self.state = self._observe()
 
         return self.state
 
@@ -128,8 +130,11 @@ class RobotEnv(World):
         return
 
     def reset_positions(self):
+        self._actuator._control_type = p.POSITION_CONTROL 
+
         for _ in range(500):
             self._actuator._act([-np.pi, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0.0, 1.0])
+
         return
         
     ## Step
@@ -147,6 +152,14 @@ class RobotEnv(World):
             print(f"body {self._body}, mount {self._mount}, gripper {self._gripper}")
             self.reset()
 
+        #print(f"action : {action}")
+        if self.epoch < self.config['policy']['warm_start']:
+            position, angle = p.getBasePositionAndOrientation(self.objects[0])
+            orientation = p.getEulerFromQuaternion(angle)[2]
+            answer = self.position_to_joints(position, orientation)
+            answer = np.append(answer, [0.5])
+        #print(f"target : {answer}")
+        action = tuple(map(sum, zip(action, answer)))
         self._act(action)
         self.step_sim(1)
         #print(f"action: {action}")
@@ -279,8 +292,8 @@ class RobotEnv(World):
         self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_sim)
         self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_objects)
         self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_model)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._actuator.reset)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._camera.reset)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._reward_fn.reset)
         self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_positions)
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._camera.reset)
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._actuator.reset)
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._reward_fn.reset)
         self.register_callback(RobotEnv.Events.CLOSE, super().close)

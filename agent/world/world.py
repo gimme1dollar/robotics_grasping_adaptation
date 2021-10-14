@@ -40,6 +40,7 @@ class World(gym.Env):
             p.GUI if visualize else p.DIRECT)
 
         # Time
+        self.epoch = 0
         self.sim_time = 0.
         self._time_step = 1. / 240.
         self._time_horizon = config['time_horizon']
@@ -85,12 +86,15 @@ class World(gym.Env):
             enableConeFriction=1)
         
         # set gravity
-        self.physics_client.setGravity(0., 0., -9.81)    
-        self.models = []
+        self.physics_client.setGravity(0., 0., -9.81)   
+
+        # set time
+        self.epoch += 1
         self.sim_time = 0.
-
         self._real_start_time = time.time()
-
+ 
+        # models
+        self.models = []
         self._scene.reset()
 
     def close(self):

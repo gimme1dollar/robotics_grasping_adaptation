@@ -7,13 +7,15 @@ from sklearn.preprocessing import MinMaxScaler
 class Actuator:
     def __init__(self, config, robot):
         self.robot = robot
+        self.config = config
         self.gripper_close = False
 
         # Define action and state spaces
         self._max_translation = config['max_translation']
         self._max_yaw_rotation = config['max_yaw_rotation']
         self._max_force = config['max_force']
-
+        
+        self._control_type = p.POSITION_CONTROL 
         self.action_space = gym.spaces.Box(-1., 1., shape=(7,), dtype=np.float32)
 
     ## simulation
@@ -21,9 +23,16 @@ class Actuator:
         return self._act(action)
 
     def reset(self):
+        # set control type with respect to algorithm
+        #if self.config['algo_type'] == 'manual':
+        #    self._control_type = p.POSITION_CONTROL 
+        #else:
+        #    self._control_type = p.TORQUE_CONTROL 
+
         # enable torque control
         for joint in self.robot._robot_joint_indices:
             p.setJointMotorControl2(self.robot._robot_body_id, joint, p.VELOCITY_CONTROL, force=0)
+
         return
 
     def _act(self, target, speed=0.03):
@@ -33,7 +42,7 @@ class Actuator:
         p.setJointMotorControlArray(
             self.robot._robot_body_id, self.robot._robot_joint_indices,
             #p.TORQUE_CONTROL, target[:-1]
-            p.POSITION_CONTROL, target[:-1]
+            self._control_type, target[:-1]
         )
 
         # Gripper control

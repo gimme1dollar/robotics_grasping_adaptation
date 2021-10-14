@@ -23,18 +23,13 @@ import argparse
 import wandb
 import warnings
 
-def manual_test() :
-    # config
-    config = io_utils.load_yaml("config/robot.yaml")
-    visualize = config.get('visualize', True) 
-
+def manual_test(config) :
     # build env
     env = gym.make('grasping-env-v0', config=config)
     env.reset()
 
-    # test
-    passed = 0    
-    while (True) :
+    # test 
+    while (True):
 
         def get_grasp_position_angle(object_id):
             position, grasp_angle = np.zeros((3, 1)), 0
@@ -53,32 +48,29 @@ def manual_test() :
             env.reset()
         print()
 
-def ddpg_test():
+def ddpg_test(config):
     #wandb.init(project="grasping_ddpg")
     warnings.filterwarnings("ignore")
-
-    # config
-    config = io_utils.load_yaml("config/robot.yaml")
 
     # build env
     env = gym.make("grasping-env-v0", config=config)
     cur_state = env.reset()
 
     # encoder
-    encoder = AutoEncoder(config).to(device)
-    encoder.load_weight("./checkpoints/ddpg/encoder_000018_.pth")
-    enc_state = encoder.encode(embed_state(cur_state))
-    state_dim = enc_state.flatten().shape[0]
+    #encoder = AutoEncoder(config).to(device)
+    #encoder.load_weight("./checkpoints/ddpg/encoder_000018_.pth")
+    #enc_state = encoder.encode(embed_state(cur_state))
+    #state_dim = enc_state.flatten().shape[0]
 
     # model
-    img_h, img_w, img_c = 64, 64, 3
+    img_h, img_w, img_c = 64, 64, 5
     action_shape = env.action_space.shape
     action_dim = action_shape[0]
     action_min = float(env.action_space.low[0])
     action_max = float(env.action_space.high[0])
 
-    #state_dim = img_h * img_w * img_c
-    agent = DDPG.DDPG(state_dim, action_dim, action_max, config['DDPG'])
+    state_dim = img_h * img_w * img_c
+    agent = DDPG.DDPG(state_dim, action_dim, action_max, config['policy']['DDPG'])
     #agent.load_weight("./checkpoints/ddpg/agent_000195_.pth")
     #wandb.watch(agent.actor_agent)
     #wandb.watch(agent.critic_agent)
@@ -91,7 +83,7 @@ def ddpg_test():
         step, total_reward = 0, 0.0
         
         cur_state = env.reset()
-        cur_state = encoder.encode(embed_state(cur_state))
+        #cur_state = encoder.encode(embed_state(cur_state))
         cur_state = cur_state.flatten()
 
         # take action 
@@ -99,7 +91,7 @@ def ddpg_test():
             action = agent.epsilon_greedy_action(cur_state, action_dim, action_min, action_max)
 
             nxt_state, reward, done, info = env.step(action)
-            nxt_state = encoder.encode(embed_state(nxt_state))
+            #nxt_state = encoder.encode(embed_state(nxt_state))
             nxt_state = nxt_state.flatten()
 
             agent.replay_buffer.push((cur_state, nxt_state, action, reward, np.float(done)))
@@ -118,7 +110,7 @@ def ddpg_test():
         # logging
         print(f"Episode: {epoch:7d} Total Reward: {total_reward:7.2f}\t", end=" ")
         print(f"Epsilon: {agent.epsilon:1.2f} \t", end=" ")
-        print(f"Position: {info['position']} \tSuccess: {success_rate:0.2f} \t{info['status']}")
+        print(f"Success: {success_rate:0.2f} \t{info['status']}")
         #wandb.log({"epoch"        : epoch})
         #wandb.log({"total_step"   : total_step})
         #wandb.log({"success_rate" : success_rate})
@@ -134,33 +126,31 @@ def ddpg_test():
             agent.save_weight(f"./checkpoints/ddpg/agent_{epoch:06d}.pth")
             #exit()
 
-def sac_test():
+def sac_test(config):
     #wandb.init(project="grasping_sac")
     warnings.filterwarnings("ignore")
-
-    # config
-    config = io_utils.load_yaml("config/robot.yaml")
 
     # build env
     env = gym.make('grasping-env-v0', config=config)
 
     # encoder
-    sac = SAC.SAC(env, env, config)
+    sac = SAC.SAC(env, env, config['policy'])
     sac.learn()
     env.close()
 
 def main(args):
-    if args.exp_algo == "manual":
-        manual_test()
-    elif args.exp_algo == "ddpg":
-        ddpg_test()
-    elif args.exp_algo == "sac":
-        sac_test()
+    # config
+    config = io_utils.load_yaml("config/robot.yaml")
+    exp_algo = config['policy']['algo_type']
+
+    if exp_algo == "manual":
+        manual_test(config)
+    elif exp_algo == "DDPG":
+        ddpg_test(config)
+    elif exp_algo == "SAC":
+        sac_test(config)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--exp-algo', type=str, default='manual',
-                        help='Name of the algorithm (default: manual)')
-
     args = parser.parse_args()
     main(args)

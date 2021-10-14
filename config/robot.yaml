@@ -2,7 +2,7 @@
 simulation:
   real_time: False
   visualize: True
-  time_horizon: 300
+  time_horizon: 70
   
   # Experimental setup parameters
   scene:
@@ -12,10 +12,6 @@ simulation:
 # Robot parameters
 robot:
   model_path: assets/gripper/wsg50_one_motor_gripper_new.sdf
-
-  max_translation: 0.03
-  max_yaw_rotation: 0.15
-  max_force: 100
 
 # Sensor parameters
 sensor:
@@ -63,25 +59,31 @@ reward:
   detect_reward: 10. # detected from segmentation mask
   close_penalty: 10.
   out_penalty: 10.
-  time_penalty: 100.
+  time_penalty: 10.
 
 
 # MDP parameters
-discount_factor: 0.99
-normalize: False  #normalize the input and rewards
+policy:
+  algo_type: DDPG #[manual, DDPG, SAC]
+  max_translation: 0.03
+  max_yaw_rotation: 0.15
+  max_force: 100
+  discount_factor: 0.99
+  warm_start: 50
+  normalize: False  #normalize the input and rewards
 
-DDPG:
-  batch_size: 32
-  tau: 0.1
-  gamma: 0.99
-  epsilon_start: 5
-  epsilon_end: 0
-  epsilon_decay: 200
+  DDPG:
+    batch_size: 32
+    tau: 0.1
+    gamma: 0.99
+    epsilon_start: 5
+    epsilon_end: 0
+    epsilon_decay: 200
 
-SAC:
-  max_iters: 10
-  batch_size: 32
-  layers: [64, 64]
-  buffer_size: 10000
-  step_size: 0.000001
-  total_timesteps: 1_000_000
+  SAC:
+    max_iters: 10
+    batch_size: 32
+    layers: [64, 64]
+    buffer_size: 10000
+    step_size: 0.000001
+    total_timesteps: 1_000_000

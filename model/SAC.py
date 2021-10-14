@@ -18,7 +18,7 @@ class LogCallback(BaseCallback):
         super(LogCallback, self).__init__()
         self.task = task
         self.log_freq = 1000
-        self.old_epoch = 0
+        self.old_epoch = 1
         self.rewards = []
 
     def _on_step(self) -> bool:
@@ -31,7 +31,7 @@ class LogCallback(BaseCallback):
             #wandb.log({"epoch"        : epoch})
             #wandb.log({"success_rate" : np.mean(history[:-20]) if epoch > 20 else np.mean(history)})
             #wandb.log({"reward"       : self.rewards[-2] if len(self.rewards) > 1 else 0}) 
-            print(f"epoch : {epoch}")
+            print(f"epoch : {epoch-1}")
             print(f"success_rate: {np.mean(history[:-20]) if epoch > 20 else np.mean(history)}")
             print(f"reward: {self.rewards[-2] if len(self.rewards) > 1 else 0}") 
             print()
@@ -65,7 +65,8 @@ class SAC:
                         learning_rate=self.config['SAC']['step_size'])
  
         # Callbacks
-        self.eval_callback = EvalCallback(self.test_env, best_model_save_path=self.model_dir,
+        self.eval_callback = EvalCallback(self.test_env, 
+                                    best_model_save_path=self.model_dir,
                                     log_path=self.model_dir, eval_freq=5_000,
                                     n_eval_episodes=10,
                                     deterministic=True, render=False)
@@ -73,8 +74,7 @@ class SAC:
 
     def learn(self):
         self.model.learn(total_timesteps=int(self.config['SAC']['total_timesteps']), 
-                        callback=[LogCallback(self.env),
-                                  self.eval_callback])
+                        callback=[LogCallback(self.env), self.eval_callback])
 
     def load(self):
         print("Loading the model")
