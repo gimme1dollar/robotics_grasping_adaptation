@@ -46,18 +46,22 @@ def env_test() :
             grasp_angle = p.getEulerFromQuaternion(orientation)[2]
             return position, grasp_angle
 
-        object_id = env._objects_body_ids[0]
-        position, grasp_angle = get_grasp_position_angle(object_id)
         
         for _ in range(500_000_000):
+            object_id = env.objects[0]
+            position, grasp_angle = get_grasp_position_angle(object_id)
+            env.manual_control(position, grasp_angle)
+
+            '''
             for _ in range(300):
-                target_joint = np.random.rand(action_shape)
+                #target_joint = np.random.rand(action_shape)
             
                 #target_joint = env.position_to_joints(position, grasp_angle)
                 #target_joint = [t for t in target_joint]
                 #target_joint.append(np.random.rand(1)[0])
 
-                env.step(target_joint)
+                #env.step(target_joint)
+            '''
             
             env.reset()
         print()

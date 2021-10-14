@@ -42,7 +42,6 @@ class RobotEnv(World):
         self.sr_mean = 0.
         self._workspace = {'lower': np.array([-1., -1., -1]),
                            'upper': np.array([1., 1., 1.])}
-        #self._simplified = config['simplified']
 
         # Model models
         self.model_path = config['robot']['model_path']        
@@ -53,13 +52,17 @@ class RobotEnv(World):
 
         # Assign the actuators
         self._actuator = actuator.Actuator(config['robot'], self)
+        self.action = None
 
         # Assign the sensors
         self._camera = sensor.RGBDSensor(config['sensor'], self)
         self._sensors = [self._camera]
+        self.state = None
 
         # Assign the reward fn
         self._reward_fn = CustomReward(config['reward'], self)
+        self.episode_step = 0
+        self.episode_rewards = 0
 
         # Assign callbacks
         self._callbacks = {RobotEnv.Events.START_OF_EPISODE: [],
@@ -73,33 +76,15 @@ class RobotEnv(World):
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(shape[0], shape[1], 6))
         self.action_space = self._actuator.action_space
 
-    def _trigger_event(self, event, *event_args):
-        for fn, args, kwargs in self._callbacks[event]:
-            fn(*(event_args + args), **kwargs)
 
-    def register_callback(self, event, fn, *args, **kwargs):
-        """Register a callback associated with the given event."""
-        self._callbacks[event].append((fn, args, kwargs))
-
-    def register_events(self, evaluate, config):
-        # Register callbacks
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_sim)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_objects)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_model)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.step_sim, 5e2)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._actuator.reset)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._camera.reset)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._reward_fn.reset)
-        self.register_callback(RobotEnv.Events.CLOSE, super().close)
-
+    ## Reset
     def reset(self):
-        print("reset real")
         """Reset the task.
 
         Returns:
             Observation of the initial state.
         """
-        self._trigger_event(RobotEnv.Events.START_OF_EPISODE)
+        self.trigger_event(RobotEnv.Events.START_OF_EPISODE)
 
         # enable torque control
         #
@@ -111,12 +96,10 @@ class RobotEnv(World):
         self.episode_step = 0
         self.episode_rewards = 0
         self.status = RobotEnv.Status.RUNNING
-        self.state = self._observe()
 
         return self.state
 
     def reset_model(self):
-
         # Robot body
         self.endEffectorAngle = 0.
         #start_pos = [0., 0., self._initial_height]
@@ -139,19 +122,20 @@ class RobotEnv(World):
         self._robot_gripper_id = self._gripper.model_id
         self._robot_end_effector_link_index = 9
         self._robot_tool_offset = [0, 0, -0.05]
-        self._tool_tip_to_ee_joint = np.array([0, 0, 0.15])
         p.createConstraint(self._robot_body_id, self._robot_end_effector_link_index, self._robot_gripper_id, 0, jointType=p.JOINT_FIXED, 
                         jointAxis=[0, 0, 0], parentFramePosition=[0, 0, 0], childFramePosition=self._robot_tool_offset, childFrameOrientation=p.getQuaternionFromEuler([0, 0, np.pi/2]))
 
-        # move body to home
-        p.setJointMotorControlArray(
-            self._robot_body_id, self._robot_joint_indices,
-            p.POSITION_CONTROL, [-np.pi, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0],
-            positionGains=np.ones(len(self._robot_joint_indices))
-        )
+        return
 
+    def reset_positions(self):
+        for _ in range(100):
+            self._actuator._act([-np.pi, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0.0, 1.0])
+        print("reset positions")
+
+        return
+        
+    ## Step
     def step(self, action):
-        print("step")
         """Advance the Task by one step.
 
         Args:
@@ -166,6 +150,7 @@ class RobotEnv(World):
             self.reset()
 
         self._act(action)
+        self.step_sim(1)
         #print(f"action: {action}")
 
         new_state = self._observe()
@@ -182,35 +167,33 @@ class RobotEnv(World):
         else:
             done = False
         
-        if done:
-            self._trigger_event(RobotEnv.Events.END_OF_EPISODE, self)
-
         position, _ = self.get_pose()
         is_in_bound = "in" if (position[0] < 0.3) and (position[1] < 0.3) and (position[2] < 0.25) and (position[2] > 0) else "out"
 
         self.episode_step += 1
         self.state = new_state
-        self.step_sim(1)
 
+        if done:
+            self.trigger_event(RobotEnv.Events.END_OF_EPISODE, self)
         #return self.obs, reward, done, {"is_success":self.status==RobotEnv.Status.SUCCESS, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards, "status": self.status}
         return self.state, reward, done, {"status": self.status, "position": is_in_bound}
         
-    def get_pose(self):
-        return self._gripper.get_pose()
 
-    def _act(self, target):
-        self._actuator._act(target)
-
+    ## Observe
     def _observe(self):
         rgb, depth, mask = self._camera.get_state()
 
         # TODO: better joints matrix
         joints = self._actuator.get_state()
-        joints.append(0)
-        joints = [ joints * 8 for _ in range(64) ]
+        #joints.append(0)
+        #joints = [ joints * 8 for _ in range(64) ]
 
-        observation = np.dstack((rgb, depth, mask, joints))
+        observation = np.dstack((rgb, depth, mask))
         return observation
+
+    def get_pose(self):
+        return self._gripper.get_pose()
+
 
     def object_detected(self, tol=0.5):
         """Grasp detection by checking whether the fingers stalled while closing."""
@@ -218,9 +201,12 @@ class RobotEnv(World):
         num_objects = len(np.unique(mask)) - 1
         return num_objects
 
-    def render(self, mode='human'):
-        pass
 
+    ## Action
+    def _act(self, target):
+        self._actuator._act(target)
+
+    # Manual control
     def position_to_joints(self, position, orientation, speed=0.03):
         """
             Move robot tool (end-effector) to a specified pose
@@ -240,3 +226,53 @@ class RobotEnv(World):
                                                           position, orientation,
                                                           maxNumIterations=100, residualThreshold=1e-4)
         return target_joint_state
+
+    def manual_control(self, grasp_position, grasp_angle):
+        print(f"excute_grasp : {grasp_position}")
+        """
+            Execute grasp sequence
+            @param: grasp_position: 3d position of place where the gripper jaws will be closed
+            @param: grasp_angle: angle of gripper before executing grasp from positive x axis in radians 
+        """
+        gripper_orientation = p.getQuaternionFromEuler([np.pi, 0, grasp_angle])
+        
+        # move body
+        print(f"moving init")
+        pre_grasp_position_over_bin = grasp_position+np.array([0, 0, 0.3])
+        for _ in range(10): self.step(np.append(self.position_to_joints(pre_grasp_position_over_bin, gripper_orientation), [1.0]))
+
+        print("over object") 
+        pre_grasp_position_over_object = grasp_position+np.array([0, 0, 0.1])
+        for _ in range(10): self.step(np.append(self.position_to_joints(pre_grasp_position_over_object, gripper_orientation), [1.0]))
+
+        print(f"close gripper")
+        joints = self._actuator.get_state()
+        joints[-1] = 0.0
+        for _ in range(10): self.step(joints)
+
+        print("grasping end")        
+        post_grasp_position = grasp_position+np.array([0, 0, 0.3])
+        for _ in range(10): self.step(np.append(self.position_to_joints(post_grasp_position, None), [0.0]))
+
+        print()   
+        return
+
+    ## Misc.
+    def trigger_event(self, event, *event_args):
+        for fn, args, kwargs in self._callbacks[event]:
+            fn(*(event_args + args), **kwargs)
+
+    def register_callback(self, event, fn, *args, **kwargs):
+        """Register a callback associated with the given event."""
+        self._callbacks[event].append((fn, args, kwargs))
+
+    def register_events(self, evaluate, config):
+        # Register callbacks
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_sim)
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_objects)
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_model)
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._actuator.reset)
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._camera.reset)
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._reward_fn.reset)
+        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_positions)
+        self.register_callback(RobotEnv.Events.CLOSE, super().close)

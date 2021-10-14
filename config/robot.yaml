@@ -6,8 +6,8 @@ simulation:
   
   # Experimental setup parameters
   scene:
-    scene_type: OnFloor # [OnTable, OnFloor]
-    data_set: random_urdfs # objects
+    scene_type: OnFloor # [OnTable, OnFloor, OnTote]
+    object_num: 15
 
 # Robot parameters
 robot:

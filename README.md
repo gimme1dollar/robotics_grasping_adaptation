@@ -65,8 +65,12 @@ python main.py --exp-algo <algo_name>
 </p>
 
 - sac (pybullet/arm)    
+
 <p align="center">
-<img src="demo/pybullet_arm.PNG" width="350px">
+<img src="demo/grasping_manual.gif" width="350px">
+</p>  
+<p align="center">
+manual control (will be used for data)
 </p>  
 
 ## Contributors
