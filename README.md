@@ -55,23 +55,27 @@ python main.py --exp-algo <algo_name>
 - ddpg (pybullet/gripper)    
   achieved upto 0.9 success rate (among latest 10 trial)
 <p align="center">
-<img src="demo/ddpg_grasping.gif" width="350px">
+<img src="demo/ddpg_gripper.gif" width="350px">
 </p>  
 <p align="center">
-<img src="demo/ddpg_grasping_reward.png" width="400px">
+<img src="demo/ddpg_gripper_reward.png" width="400px">
 </p>
 <p align="center">
-<img src="demo/ddpg_grasping_success.png" width="400px">
+<img src="demo/ddpg_gripper_success.png" width="400px">
 </p>
 
-- sac (pybullet/arm)    
+- manual (pybullet/arm)    
+<p align="center">
+<img src="demo/manual_arm.gif" width="350px">
+</p>  
 
+- ddpg (pybullet/arm)    
 <p align="center">
-<img src="demo/grasping_manual.gif" width="350px">
-</p>  
+<img src="demo/ddpg_arm_reward.png" width="400px">
+</p>
 <p align="center">
-manual control (will be used for data)
-</p>  
+<img src="demo/ddpg_arm_success.png" width="400px">
+</p>
 
 ## Contributors
 이주용 안석준

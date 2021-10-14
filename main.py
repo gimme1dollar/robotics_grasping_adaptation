@@ -49,7 +49,7 @@ def manual_test(config) :
         print()
 
 def ddpg_test(config):
-    #wandb.init(project="grasping_ddpg")
+    wandb.init(project="grasping_ddpg")
     warnings.filterwarnings("ignore")
 
     # build env
@@ -72,11 +72,11 @@ def ddpg_test(config):
     state_dim = img_h * img_w * img_c
     agent = DDPG.DDPG(state_dim, action_dim, action_max, config['policy']['DDPG'])
     #agent.load_weight("./checkpoints/ddpg/agent_000195_.pth")
-    #wandb.watch(agent.actor_agent)
-    #wandb.watch(agent.critic_agent)
+    wandb.watch(agent.actor_agent)
+    wandb.watch(agent.critic_agent)
 
     # main loop
-    max_episode = 500_000
+    max_episode = 200
     success, total_step = [], 0
     for epoch in range(max_episode):
         agent.update_epsilone(epoch)
@@ -89,6 +89,14 @@ def ddpg_test(config):
         # take action 
         while True:
             action = agent.epsilon_greedy_action(cur_state, action_dim, action_min, action_max)
+
+            # Warm start
+            if env.epoch < env.config['policy']['warm_start']:
+                position, angle = p.getBasePositionAndOrientation(env.objects[0])
+                orientation = p.getEulerFromQuaternion(angle)[2]
+                answer = env.position_to_joints(position, orientation)
+                answer = np.append(answer, [0.5])
+                action = tuple(map(sum, zip(action, answer)))
 
             nxt_state, reward, done, info = env.step(action)
             #nxt_state = encoder.encode(embed_state(nxt_state))
@@ -111,18 +119,18 @@ def ddpg_test(config):
         print(f"Episode: {epoch:7d} Total Reward: {total_reward:7.2f}\t", end=" ")
         print(f"Epsilon: {agent.epsilon:1.2f} \t", end=" ")
         print(f"Success: {success_rate:0.2f} \t{info['status']}")
-        #wandb.log({"epoch"        : epoch})
-        #wandb.log({"total_step"   : total_step})
-        #wandb.log({"success_rate" : success_rate})
-        #wandb.log({"epsilon"      : agent.epsilon})
-        #wandb.log({"reward/total" : total_reward})
+        wandb.log({"epoch"        : epoch})
+        wandb.log({"total_step"   : total_step})
+        wandb.log({"success_rate" : success_rate})
+        wandb.log({"epsilon"      : agent.epsilon})
+        wandb.log({"reward/total" : total_reward})
 
         # agent traning with warm start
         if epoch > 0:
             agent.update(1000) 
         
         # save
-        if success_rate > 0.95 and len(success) > 20:
+        if success_rate > 0.7 and len(success) > 20:
             agent.save_weight(f"./checkpoints/ddpg/agent_{epoch:06d}.pth")
             #exit()
 

@@ -152,14 +152,6 @@ class RobotEnv(World):
             print(f"body {self._body}, mount {self._mount}, gripper {self._gripper}")
             self.reset()
 
-        #print(f"action : {action}")
-        if self.epoch < self.config['policy']['warm_start']:
-            position, angle = p.getBasePositionAndOrientation(self.objects[0])
-            orientation = p.getEulerFromQuaternion(angle)[2]
-            answer = self.position_to_joints(position, orientation)
-            answer = np.append(answer, [0.5])
-        #print(f"target : {answer}")
-        action = tuple(map(sum, zip(action, answer)))
         self._act(action)
         self.step_sim(1)
         #print(f"action: {action}")

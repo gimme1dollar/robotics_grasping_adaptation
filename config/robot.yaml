@@ -53,7 +53,7 @@ sensor:
 reward:
   #custom: True
   #shaped: True
-  terminal_reward: 3000. 
+  terminal_reward: 10_000. 
   lift_reward: 300. # lift target object
   grasp_reward: 100.
   detect_reward: 10. # detected from segmentation mask
