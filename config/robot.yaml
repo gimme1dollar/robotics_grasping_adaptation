@@ -2,16 +2,18 @@
 simulation:
   real_time: False
   visualize: True
-  time_horizon: 70
+  time_horizon: 100
   
   # Experimental setup parameters
   scene:
     scene_type: OnFloor # [OnTable, OnFloor, OnTote]
-    object_num: 15
+    object_num: 5
 
 # Robot parameters
 robot:
-  model_path: assets/gripper/wsg50_one_motor_gripper_new.sdf
+  mount_path: assets/body/mount.urdf
+  body_path: assets/body/ur5.urdf
+  gripper_path: assets/gripper/robotiq_2f_85.urdf
 
 # Sensor parameters
 sensor:
@@ -59,12 +61,12 @@ reward:
   detect_reward: 10. # detected from segmentation mask
   close_penalty: 10.
   out_penalty: 10.
-  time_penalty: 10.
+  time_penalty: 20.
 
 
 # MDP parameters
 policy:
-  algo_type: DDPG #[manual, DDPG, SAC]
+  algo_type: SAC #[manual, DDPG, SAC]
   max_translation: 0.03
   max_yaw_rotation: 0.15
   max_force: 100
@@ -84,6 +86,7 @@ policy:
     max_iters: 10
     batch_size: 32
     layers: [64, 64]
-    buffer_size: 10000
-    step_size: 0.000001
-    total_timesteps: 1_000_000
+    buffer_size: 150_000
+    gradient_steps: 100
+    step_size: 0.001
+    total_epoch: 1_000

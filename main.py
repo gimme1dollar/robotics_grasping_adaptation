@@ -76,7 +76,7 @@ def ddpg_test(config):
     wandb.watch(agent.critic_agent)
 
     # main loop
-    max_episode = 200
+    max_episode = 20
     success, total_step = [], 0
     for epoch in range(max_episode):
         agent.update_epsilone(epoch)
@@ -95,7 +95,7 @@ def ddpg_test(config):
                 position, angle = p.getBasePositionAndOrientation(env.objects[0])
                 orientation = p.getEulerFromQuaternion(angle)[2]
                 answer = env.position_to_joints(position, orientation)
-                answer = np.append(answer, [0.5])
+                answer = np.append(answer, [0.05])
                 action = tuple(map(sum, zip(action, answer)))
 
             nxt_state, reward, done, info = env.step(action)
@@ -135,7 +135,7 @@ def ddpg_test(config):
             #exit()
 
 def sac_test(config):
-    #wandb.init(project="grasping_sac")
+    wandb.init(project="grasping_sac")
     warnings.filterwarnings("ignore")
 
     # build env
@@ -144,6 +144,7 @@ def sac_test(config):
     # encoder
     sac = SAC.SAC(env, env, config['policy'])
     sac.learn()
+    
     env.close()
 
 def main(args):

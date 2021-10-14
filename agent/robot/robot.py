@@ -45,7 +45,6 @@ class RobotEnv(World):
                            'upper': np.array([1., 1., 1.])}
 
         # Model models
-        self.model_path = config['robot']['model_path']        
         self._body, self._mount, self._gripper = None, None, None
         self._robot_body_id = None
         self._robot_mount_id = None
@@ -152,9 +151,8 @@ class RobotEnv(World):
             print(f"body {self._body}, mount {self._mount}, gripper {self._gripper}")
             self.reset()
 
+        action = [a * 10 for a in action]
         self._act(action)
-        self.step_sim(1)
-        #print(f"action: {action}")
 
         new_state = self._observe()
         #print(f"state: {new_obs}")
@@ -175,6 +173,7 @@ class RobotEnv(World):
 
         if done:
             self.trigger_event(RobotEnv.Events.END_OF_EPISODE, self)
+        print(f"step: {self.episode_step}, reward: {reward} \naction: {action}\n")
         return self.state, reward, done, {"status": self.status, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards}
         
 
@@ -225,7 +224,7 @@ class RobotEnv(World):
                                                           self._robot_end_effector_link_index,
                                                           position, orientation,
                                                           maxNumIterations=100, residualThreshold=1e-4)
-        return target_joint_state
+        return tuple(t / 10 for t in target_joint_state)
 
     def manual_control(self, grasp_position, grasp_angle):
         """
@@ -240,26 +239,26 @@ class RobotEnv(World):
         # move body
         #print(f"moving init")
         pre_grasp_position_over_bin = grasp_position+np.array([0, 0, 0.3])
-        for _ in range(10): 
-            _, reward, _, _ = self.step(np.append(self.position_to_joints(pre_grasp_position_over_bin, gripper_orientation), [1.0]))
+        for _ in range(20): 
+            _, reward, _, _ = self.step(np.append(self.position_to_joints(pre_grasp_position_over_bin, gripper_orientation), [0.1]))
             total_reward += reward
 
         #print("over object") 
         pre_grasp_position_over_object = grasp_position+np.array([0, 0, 0.1])
-        for _ in range(10): 
-            _, reward, _, _ = self.step(np.append(self.position_to_joints(pre_grasp_position_over_object, gripper_orientation), [1.0]))
+        for _ in range(20): 
+            _, reward, _, _ = self.step(np.append(self.position_to_joints(pre_grasp_position_over_object, gripper_orientation), [0.1]))
             total_reward += reward
 
         #print(f"close gripper")
-        joints = self._actuator.get_state()
+        joints = [j / 10 for j in self._actuator.get_state()]
         joints[-1] = 0.0
-        for _ in range(10): 
+        for _ in range(20): 
             _, reward, _, _ = self.step(joints)
             total_reward += reward
 
         #print("grasping end")        
         post_grasp_position = grasp_position+np.array([0, 0, 0.3])
-        for _ in range(10): 
+        for _ in range(20): 
             _, reward, _, _ = self.step(np.append(self.position_to_joints(post_grasp_position, None), [0.0]))
             total_reward += reward
             if self.status == RobotEnv.Status.SUCCESS: 

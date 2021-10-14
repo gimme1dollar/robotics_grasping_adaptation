@@ -5,9 +5,10 @@ import numpy as np
 import stable_baselines3 as sb
 import wandb
 
-from stable_baselines3.sac.policies import MlpPolicy as sacMlp
+from stable_baselines3.sac.policies import MlpPolicy
 from stable_baselines3.common.vec_env import  VecNormalize
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
+from stable_baselines3.common.noise import NormalActionNoise
 
 class LogCallback(BaseCallback):
     """
@@ -28,13 +29,12 @@ class LogCallback(BaseCallback):
 
         epoch = len(history)
         if self.old_epoch != epoch:
-            #wandb.log({"epoch"        : epoch})
-            #wandb.log({"success_rate" : np.mean(history[:-20]) if epoch > 20 else np.mean(history)})
-            #wandb.log({"reward"       : self.rewards[-2] if len(self.rewards) > 1 else 0}) 
-            print(f"epoch : {epoch-1}")
-            print(f"success_rate: {np.mean(history[:-20]) if epoch > 20 else np.mean(history)}")
-            print(f"reward: {self.rewards[-2] if len(self.rewards) > 1 else 0}") 
-            print()
+            wandb.log({"epoch"        : epoch})
+            wandb.log({"success_rate" : np.mean(history[:-20]) if epoch > 20 else np.mean(history)})
+            wandb.log({"reward"       : self.rewards[-2] if len(self.rewards) > 1 else 0}) 
+            print(f"epoch : {epoch-1}", end="\t")
+            print(f"success_rate: {np.mean(history[:-20]) if epoch > 20 else np.mean(history)}", end="\t")
+            print(f"reward: {self.rewards[-2] if len(self.rewards) > 1 else 0}", end="\n")
             self.rewards = []
             self.old_epoch = epoch
         return True
@@ -55,11 +55,17 @@ class SAC:
                                         clip_obs=10.)
 
         # Model
-        self.model = sb.SAC(sacMlp,
+        #noise_mean = [0.0, 0.2, 0.1, 0.0, 0.0, 0.0, 0.05]
+        #noise_std  = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+        #action_noise = NormalActionNoise(mean=noise_mean, sigma=noise_std)
+        self.model = sb.SAC(MlpPolicy,
                         self.env,
                         policy_kwargs={},
-                        verbose=2,
+                        verbose=1,
                         gamma=self.config['discount_factor'],
+                        gradient_steps=self.config['SAC']['gradient_steps'],
+                        learning_starts=self.config['warm_start']*self.env._time_horizon,
+                        #action_noise=action_noise,
                         buffer_size=self.config['SAC']['buffer_size'],
                         batch_size=self.config['SAC']['batch_size'],
                         learning_rate=self.config['SAC']['step_size'])
@@ -73,7 +79,7 @@ class SAC:
         
 
     def learn(self):
-        self.model.learn(total_timesteps=int(self.config['SAC']['total_timesteps']), 
+        self.model.learn(total_timesteps=int(self.config['SAC']['total_epoch']*self.env._time_horizon), 
                         callback=[LogCallback(self.env), self.eval_callback])
 
     def load(self):
