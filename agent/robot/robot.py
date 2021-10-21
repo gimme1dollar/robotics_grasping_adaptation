@@ -73,7 +73,7 @@ class RobotEnv(World):
 
         # Setup for spaces
         shape = self._camera.state_space.shape
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(shape[0], shape[1], 5))
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(shape[0], shape[1], 4))
         self.action_space = self._actuator.action_space
 
 
@@ -173,7 +173,7 @@ class RobotEnv(World):
 
         if done:
             self.trigger_event(RobotEnv.Events.END_OF_EPISODE, self)
-        print(f"step: {self.episode_step}, reward: {reward} \naction: {action}\n")
+        #print(f"step: {self.episode_step}, reward: {reward} \naction: {action}\n")
         return self.state, reward, done, {"status": self.status, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards}
         
 
@@ -184,7 +184,7 @@ class RobotEnv(World):
         # TODO: better joints matrix
         joints = self._actuator.get_state()
 
-        observation = np.dstack((rgb, depth, mask))
+        observation = np.dstack((rgb, depth))
         return observation
 
     def robot_pose(self):
