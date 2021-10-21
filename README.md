@@ -33,14 +33,10 @@ pytest test
 ```
 
 ## Algorithm
-- DDPG pseudo algorithm
+- Pseudo algorithm for reinforcement learning
 <p align="center">
-<img src="demo/ddpg_pseudo.png" width="350px">
-</p>
-
-- SAC pseudo algorithm
-<p align="center">
-<img src="demo/sac_pseudo.png" width="350px">
+<img src="demo/ddpg_pseudo.png" width="330px" height="250px">
+<img src="demo/sac_pseudo.png" width="370px" height="250px">
 </p>
 
 - Domain_adaptation pseudo algorithm
@@ -58,23 +54,24 @@ python main.py --exp-algo <algo_name>
 <img src="demo/ddpg_gripper.gif" width="350px">
 </p>  
 <p align="center">
-<img src="demo/ddpg_gripper_reward.png" width="400px">
-</p>
-<p align="center">
-<img src="demo/ddpg_gripper_success.png" width="400px">
-</p>
+<img src="demo/ddpg_gripper_reward.png" width="350px" height="200px">
+<img src="demo/ddpg_gripper_success.png" width="350px" height="200px">
+</p>  
 
 - manual (pybullet/arm)    
 <p align="center">
 <img src="demo/manual_arm.gif" width="350px">
 </p>  
 
+- augmented input (pybullet/arm)    
+<p align="center">
+<img src="demo/aug_hue.png" width="350px" height="275px">
+<img src="demo/aug_noise.png" width="350px" height="275px">
+
 - ddpg (pybullet/arm)    
 <p align="center">
-<img src="demo/ddpg_arm_reward.png" width="400px">
-</p>
-<p align="center">
-<img src="demo/ddpg_arm_success.png" width="400px">
+<img src="demo/ddpg_arm_reward.png" width="350px" height="200px">
+<img src="demo/ddpg_arm_success.png" width="350px" height="200px">
 </p>
 
 ## Contributors
