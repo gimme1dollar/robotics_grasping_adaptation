@@ -23,10 +23,10 @@ class Model(object):
         joints, links = {}, {}
         for i in range(self._physics_client.getNumJoints(self.model_id)):
             joint_info = self._physics_client.getJointInfo(self.model_id, i)
-            joints[i] = _Joint(self._physics_client, self.model_id, i,  
+            joints[i] = Joint(self._physics_client, self.model_id, i,  
                             {'lower': joint_info[8], 'upper': joint_info[9],
                              'force': joint_info[10]})
-            links[i] = _Link(self._physics_client, self.model_id, i)
+            links[i] = Link(self._physics_client, self.model_id, i)
         self.joints, self.links = joints, links
 
         return model_id
@@ -44,7 +44,7 @@ class Model(object):
         return self._physics_client.getBasePositionAndOrientation(self.model_id)
 
 
-class _Joint(object):
+class Joint(object):
     def __init__(self, physics_client, model_id, joint_id, limits):
         self._physics_client = physics_client
         self.model_id = model_id
@@ -68,7 +68,7 @@ class _Joint(object):
             self.model_id, self.jid, controlMode=p.VELOCITY_CONTROL, force=0.)
 
 
-class _Link(object):
+class Link(object):
     def __init__(self, physics_client, model_id, link_id):
         self._physics_client = physics_client
         self.model_id = model_id

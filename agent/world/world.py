@@ -122,21 +122,19 @@ class World(gym.Env):
         # load objects
         self.objects = []
         
-        _object_body_id = p.loadURDF(object_shapes[-1], [0.5, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
+        _object_body_id = p.loadURDF(object_shapes[-1], [2.0, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
         self.objects.append(_object_body_id) 
         for i in range(self.object_num):
             _object_shape = random.choice(object_shapes[:-1])
-            _object_body_id = p.loadURDF(_object_shape, [0.5, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
+            _object_body_id = p.loadURDF(_object_shape, [2.0, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
             self.objects.append(_object_body_id)
             
         # set objects configuration
         for object_body_id in self.objects:
             # poisition
-            random_position = np.random.random_sample((3))*(self._scene._workspace_bounds[:, 1]-(
-                self._scene._workspace_bounds[:, 0]+0.1))+self._scene._workspace_bounds[:, 0]+0.1
+            random_position = [0.7, 0.0, 0.1]
             random_orientation = np.random.random_sample((3))*2*np.pi-np.pi
-            p.resetBasePositionAndOrientation(
-                object_body_id, random_position, p.getQuaternionFromEuler(random_orientation))
+            p.resetBasePositionAndOrientation(object_body_id, random_position, p.getQuaternionFromEuler(random_orientation))
 
         # set objects colors
         p.changeVisualShape(self.objects[0], -1, rgbaColor=np.concatenate((object_colors[-1], np.array([1.0]))))
@@ -172,15 +170,15 @@ class World(gym.Env):
 
         palette = np.array(
             [
-                [78, 121, 167],  # blue
-                [89, 169, 79],  # green
+                #[78, 121, 167],  # blue
+                #[89, 169, 79],  # green
                 [237, 201, 72],  # yellow
-                #[156, 117, 95],  # brown
+                [156, 117, 95],  # brown
                 [242, 142, 43],  # orange
                 #[176, 122, 161],  # purple
                 [255, 157, 167],  # pink
-                [118, 183, 178],  # cyan
-                [186, 176, 172],  # gray
+                #[118, 183, 178],  # cyan
+                #[186, 176, 172],  # gray
                 
                 [255, 87, 89],  # red
                 
@@ -202,10 +200,3 @@ class World(gym.Env):
             #Random with random seed
             self._rng, seed = seeding.np_random(seed)
         return self._rng
-
-    def get_num_body(self):
-        self.physics_client.syncBodyInfo()
-        if self.scene_type == "OnTable":
-            return self.physics_client.getNumBodies() - 2
-        else:
-            return self.physics_client.getNumBodies()

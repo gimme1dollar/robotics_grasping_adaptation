@@ -34,7 +34,7 @@ class Reward:
         return reward, status
 
     def reset(self):
-        position, _ = self._robot.robot_pose()
+        position, _ = self._robot.gripper_pose()
         self._grasping = False
         self._old_robot_height = position[2]
 
@@ -48,7 +48,7 @@ class CustomReward(Reward):
         # prerequisites
         self._target_id = self._robot.objects[0]
         object_pos, _ = p.getBasePositionAndOrientation(self._target_id)
-        robot_pos, _ = self._robot.robot_pose()
+        robot_pos, _ = self._robot.gripper_pose()
 
         # Reward on detection
         det_mask = self._robot.object_detected()
@@ -82,7 +82,7 @@ class CustomReward(Reward):
             return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
 
         # Penalty on poor grasping
-        if self._old_gripper_close == False and self._robot._actuator.gripper_close == True:
+        if self._old_gripper_close == False and self._robot.gripper_close == True:
             reward -= self._close_penalty
             #print(f"penalty on poor grasping: {reward}")
 
@@ -91,6 +91,6 @@ class CustomReward(Reward):
         #print(f"penalty on time: {reward}")
 
         # return
-        self._old_gripper_close = self._robot._actuator.gripper_close
+        self._old_gripper_close = self._robot.gripper_close
         self._old_robot_height = robot_pos[2]
         return reward, robot.RobotEnv.Status.RUNNING

@@ -2,7 +2,8 @@
 simulation:
   real_time: False
   visualize: True
-  time_horizon: 100
+  time_horizon: 130
+  max_episode: 10_000_000
   
   # Experimental setup parameters
   scene:
@@ -13,7 +14,9 @@ simulation:
 robot:
   mount_path: assets/body/mount.urdf
   body_path: assets/body/ur5.urdf
-  gripper_path: assets/gripper/robotiq_2f_85.urdf
+  gripper_path: assets/gripper1/robotiq_2f_85.urdf
+  # assets/gripper0/wsg50_one_motor_gripper_new.sdf
+  # assets/gripper1/robotiq_2f_85.urdf
 
 # Sensor parameters
 sensor:
@@ -50,7 +53,6 @@ sensor:
     epochs: 120
     data_path: ~/ActionBranchingDQN/new_gripper_onfloor_imgs.pkl
 
-
 # Reward parameters
 reward:
   #custom: True
@@ -66,21 +68,21 @@ reward:
 
 # MDP parameters
 policy:
-  algo_type: SAC #[manual, DDPG, SAC]
+  algo_type: DDPG #[manual, DDPG, SAC]
   max_translation: 0.03
   max_yaw_rotation: 0.15
   max_force: 100
   discount_factor: 0.99
-  warm_start: 50
+  warm_start: 50_000
   normalize: False  #normalize the input and rewards
 
   DDPG:
     batch_size: 32
     tau: 0.1
     gamma: 0.99
-    epsilon_start: 5
+    epsilon_start: 1
     epsilon_end: 0
-    epsilon_decay: 200
+    epsilon_decay: 500_000
 
   SAC:
     max_iters: 10

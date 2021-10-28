@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pybullet as p
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 from itertools import count
 
@@ -8,6 +9,7 @@ import gym
 import agent
 from model import DDPG, SAC
 from agent.utils import io_utils
+from agent.utils.augment_utils import *
 from agent.robot.robot import RobotEnv
 from agent.robot.encoder import AutoEncoder, embed_state
 
@@ -22,6 +24,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 import argparse
 import wandb
 import warnings
+warnings.filterwarnings("ignore")
 
 def manual_test(config) :
     # build env
@@ -30,17 +33,11 @@ def manual_test(config) :
 
     # test 
     while (True):
-
         def get_grasp_position_angle(object_id):
-            position, grasp_angle = np.zeros((3, 1)), 0
-            # ========= PART 2============
-            # Get position and orientation (yaw in radians) of the gripper for grasping
-            # ==================================
             position, orientation = p.getBasePositionAndOrientation(object_id)
             grasp_angle = p.getEulerFromQuaternion(orientation)[2]
             return position, grasp_angle
 
-        
         for _ in range(100):
             object_id = env.objects[0]
             position, grasp_angle = get_grasp_position_angle(object_id)
@@ -49,8 +46,7 @@ def manual_test(config) :
         print()
 
 def ddpg_test(config):
-    wandb.init(project="grasping_ddpg")
-    warnings.filterwarnings("ignore")
+    #wandb.init(project="grasping_ddpg")
 
     # build env
     env = gym.make("grasping-env-v0", config=config)
@@ -63,20 +59,19 @@ def ddpg_test(config):
     #state_dim = enc_state.flatten().shape[0]
 
     # model
-    img_h, img_w, img_c = 64, 64, 5
+    img_h, img_w, img_c = 64, 64, 4
     action_shape = env.action_space.shape
     action_dim = action_shape[0]
     action_min = float(env.action_space.low[0])
     action_max = float(env.action_space.high[0])
-
     state_dim = img_h * img_w * img_c
     agent = DDPG.DDPG(state_dim, action_dim, action_max, config['policy']['DDPG'])
     #agent.load_weight("./checkpoints/ddpg/agent_000195_.pth")
-    wandb.watch(agent.actor_agent)
-    wandb.watch(agent.critic_agent)
+    #wandb.watch(agent.actor_agent)
+    #wandb.watch(agent.critic_agent)
 
     # main loop
-    max_episode = 20
+    max_episode = env.config['simulation']['max_episode']
     success, total_step = [], 0
     for epoch in range(max_episode):
         agent.update_epsilone(epoch)
@@ -94,11 +89,18 @@ def ddpg_test(config):
             if env.epoch < env.config['policy']['warm_start']:
                 position, angle = p.getBasePositionAndOrientation(env.objects[0])
                 orientation = p.getEulerFromQuaternion(angle)[2]
-                answer = env.position_to_joints(position, orientation)
-                answer = np.append(answer, [0.05])
+                answer = np.asarray(position)
+                answer = np.append(answer, np.asarray(orientation))
+                answer = np.append(answer, [0])
                 action = tuple(map(sum, zip(action, answer)))
 
             nxt_state, reward, done, info = env.step(action)
+
+            #nxt_state[:,:,-1] = image_noise(nxt_state[:,:,-1])
+            #plt.imshow(nxt_state[:,:,-1], cmap='gray')
+            #plt.show()
+            #plt.pause(0.1) 
+
             #nxt_state = encoder.encode(embed_state(nxt_state))
             nxt_state = nxt_state.flatten()
 
@@ -119,11 +121,11 @@ def ddpg_test(config):
         print(f"Episode: {epoch:7d} Total Reward: {total_reward:7.2f}\t", end=" ")
         print(f"Epsilon: {agent.epsilon:1.2f} \t", end=" ")
         print(f"Success: {success_rate:0.2f} \t{info['status']}")
-        wandb.log({"epoch"        : epoch})
-        wandb.log({"total_step"   : total_step})
-        wandb.log({"success_rate" : success_rate})
-        wandb.log({"epsilon"      : agent.epsilon})
-        wandb.log({"reward/total" : total_reward})
+        #wandb.log({"epoch"        : epoch})
+        #wandb.log({"total_step"   : total_step})
+        #wandb.log({"success_rate" : success_rate})
+        #wandb.log({"epsilon"      : agent.epsilon})
+        #wandb.log({"reward/total" : total_reward})
 
         # agent traning with warm start
         if epoch > 0:
@@ -136,7 +138,6 @@ def ddpg_test(config):
 
 def sac_test(config):
     wandb.init(project="grasping_sac")
-    warnings.filterwarnings("ignore")
 
     # build env
     env = gym.make('grasping-env-v0', config=config)
@@ -153,10 +154,13 @@ def main(args):
     exp_algo = config['policy']['algo_type']
 
     if exp_algo == "manual":
+        print("manual")
         manual_test(config)
     elif exp_algo == "DDPG":
+        print("ddpg")
         ddpg_test(config)
     elif exp_algo == "SAC":
+        print("sac")
         sac_test(config)
 
 if __name__ == "__main__":
