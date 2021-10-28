@@ -32,6 +32,7 @@ class World(gym.Env):
         config_scene = config['scene']
         self.scene_type = config_scene['scene_type']
         self.object_num = config_scene['object_num']
+        self.object_pos = config_scene['object_pos']
 
         # Pybullet client
         visualize = config.get('visualize', True) 
@@ -132,7 +133,7 @@ class World(gym.Env):
         # set objects configuration
         for object_body_id in self.objects:
             # poisition
-            random_position = [0.7, 0.0, 0.1]
+            random_position = self.object_pos
             random_orientation = np.random.random_sample((3))*2*np.pi-np.pi
             p.resetBasePositionAndOrientation(object_body_id, random_position, p.getQuaternionFromEuler(random_orientation))
 

@@ -94,3 +94,68 @@ class CustomReward(Reward):
         self._old_gripper_close = self._robot.gripper_close
         self._old_robot_height = robot_pos[2]
         return reward, robot.RobotEnv.Status.RUNNING
+
+        
+class GripperReward(Reward):
+    def __call__(self, obs, action, new_obs):
+        reward = 0.
+        
+        position, _ = self._robot.get_pose()
+        robot_height = position[2]
+
+        if self._robot.object_detected():
+            if not self._lifting:
+                self._start_height = robot_height
+                self._lifting = True
+
+            if robot_height - self._start_height > 0.15:
+                return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
+
+                '''    
+                if self._table_clearing:
+                    # Object was lifted by the desired amount
+                    grabbed_obj = self._robot.find_highest()
+                    if grabbed_obj is not -1:
+                        self._robot.remove_model(grabbed_obj)
+                    
+                    # Multiple object grasping
+                    # grabbed_objs = self._robot.find_higher(self.lift_dist)
+                    # if grabbed_objs:
+                    #     self._robot.remove_models(grabbed_objs)
+
+                    self._robot.open_gripper()
+                    if self._robot.get_num_body() == 2: 
+                        return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
+                    return self._lift_success, robot.RobotEnv.Status.RUNNING
+                else:
+                    if not self._shaped:
+                        return 1., robot.RobotEnv.Status.SUCCESS
+                    return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
+                '''
+
+            # Intermediate rewards for grasping
+            reward += self._grasp_reward
+
+            # Intermediate rewards for lifting
+            delta_z = robot_height - self._old_robot_height
+            reward += 10 * delta_z
+        else:
+            self._lifting = False
+
+
+        # Time penalty
+        reward -= self._time_penalty
+
+        # Range out of bound penalty
+        if (position[0] > 0.3) or (position[1] > 0.3):
+            reward -= self._out_penalty
+        if (position[2] > 0.25) or (position[2] < 0):
+            reward -= self._out_penalty * 3
+
+        # Poor grasp
+        if self._old_gripper_close ^ self._robot.gripper_close:
+            reward -= self._close_penalty
+
+        self._old_gripper_close = self._robot.gripper_close
+        self._old_robot_height = robot_height
+        return reward, robot.RobotEnv.Status.RUNNING

@@ -1,0 +1,96 @@
+# Simulation parameters
+simulation:
+  real_time: False
+  visualize: True
+  time_horizon: 130
+  max_episode: 10_000_000
+  mode: default
+  
+  # Experimental setup parameters
+  scene:
+    scene_type: OnFloor # [OnTable, OnFloor, OnTote]
+    object_num: 5
+    object_pos: [0.7, 0.0, 0.1]
+
+# Robot parameters
+robot:
+  mount_path: assets/body/mount.urdf
+  body_path: assets/body/ur5.urdf
+  gripper_path: assets/gripper1/robotiq_2f_85.urdf
+  # assets/gripper0/wsg50_one_motor_gripper_new.sdf
+  # assets/gripper1/robotiq_2f_85.urdf
+
+# Sensor parameters
+sensor:
+  camera_info: 
+    height: 64
+    width: 64
+    K: [69.76, 0.0, 32.19, 0.0, 77.25, 32.0, 0.0, 0.0, 1.0]
+    near: 0.02
+    far: 2.0
+  transform: 
+    translation: [0.0, 0.0573, 0.0451]
+    rotation: [0.0, -0.1305, 0.9914, 0.0]
+  visualize: True
+  encode: False
+
+  # Randomize camera parameters
+  randomize:
+    focal_length: 4
+    optical_center: 2
+    translation: 0.002
+    rotation: 0.0349
+  
+  # Encoder parameters
+  encoder:
+    network: [
+      {in_channel: 3, out_channel: 32, kernel_size: 3, stride: 1, padding: 1},
+      {in_channel: 32, out_channel: 16, kernel_size: 3, stride: 1, padding: 1},
+      {in_channel: 16, out_channel: 8, kernel_size: 3, stride: 1, padding: 1},
+      {in_channel: 8, out_channel: 1, kernel_size: 1, stride: 1, padding: 0}
+    ]
+    encoding_dim: 100
+    learning_rate: 0.0002
+    batch_size: 128
+    epochs: 120
+    data_path: ~/ActionBranchingDQN/new_gripper_onfloor_imgs.pkl
+
+# Reward parameters
+reward:
+  #custom: True
+  #shaped: True
+  terminal_reward: 10_000. 
+  lift_reward: 300. # lift target object
+  grasp_reward: 100.
+  detect_reward: 10. # detected from segmentation mask
+  close_penalty: 10.
+  out_penalty: 10.
+  time_penalty: 20.
+
+
+# MDP parameters
+policy:
+  algo_type: DDPG #[manual, DDPG, SAC]
+  max_translation: 0.03
+  max_yaw_rotation: 0.15
+  max_force: 100
+  discount_factor: 0.99
+  warm_start: 50_000
+  normalize: False  #normalize the input and rewards
+
+  DDPG:
+    batch_size: 32
+    tau: 0.1
+    gamma: 0.99
+    epsilon_start: 1
+    epsilon_end: 0
+    epsilon_decay: 500_000
+
+  SAC:
+    max_iters: 10
+    batch_size: 32
+    layers: [64, 64]
+    buffer_size: 150_000
+    gradient_steps: 100
+    step_size: 0.001
+    total_epoch: 1_000

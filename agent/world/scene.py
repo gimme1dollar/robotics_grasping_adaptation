@@ -34,18 +34,18 @@ class OnFloor(BaseScene):
         p.setGravity(0, 0, -9.8)
 
 class OnTable(BaseScene):
-    """Tabletop settings"""
+    """Tabletop settings with geometrically different objects."""
     def reset(self):
-        raise BaseException
-
-        self.plane_path = 'plane/plane.urdf'
         self.table_path = 'table/table.urdf'
+        self.plane_path = 'plane/plane.urdf'
         self._model_path = pybullet_data.getDataPath()
         plane_urdf = os.path.join("assets", self.plane_path)
         table_urdf = os.path.join("assets", self.table_path)
-        self._world.add_model(plane_urdf, [0., 0., -1.], [0., 0., 0., 1.])
-        self._world.add_model(table_urdf, [0., 0., -.82], [0., 0., 0., 1.])
-        
+        self._world.add_model(plane_urdf, [0., 0., -0.25], [0., 0., 0., 1.])
+        self._world.add_model(table_urdf, [0., 0., -0.20], [0., 0., 0., 1.])
+        #self._world.add_model(tray_path, [0, 0.075, -0.19],
+        #                      [0.0, 0.0, 1.0, 0.0], scaling=1.2)
+
         # Wait for the objects to rest
         self._world.run(1.)
 

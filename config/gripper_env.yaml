@@ -2,23 +2,29 @@
 simulation:
   real_time: False
   visualize: True
-  time_horizon: 130
+  mode: default
+  time_horizon: 300
   max_episode: 10_000_000
   
-  # Experimental setup parameters
   scene:
-    scene_type: OnFloor # [OnTable, OnFloor, OnTote]
-    object_num: 5
-
+    scene_type: "OnTable" # OnTable scene is easier for the table clearing task
+    #scene_type: "OnFloor"
+    data_set: random_urdfs
+    object_num: 15
+    object_pos: [0.0, 0.0, 0.5]
+    
 # Robot parameters
 robot:
-  mount_path: assets/body/mount.urdf
-  body_path: assets/body/ur5.urdf
-  gripper_path: assets/gripper1/robotiq_2f_85.urdf
-  # assets/gripper0/wsg50_one_motor_gripper_new.sdf
-  # assets/gripper1/robotiq_2f_85.urdf
+  model_path: assets/gripper0/wsg50_one_motor_gripper_new.sdf
+  max_translation: 0.03
+  max_yaw_rotation: 0.15
+  max_force: 100
+  discrete: False
+  step_size: 0.01 #For discrete action space
+  yaw_step: 0.1
+  num_actions_pad: 2
+  # include_robot_height: True
 
-# Sensor parameters
 sensor:
   camera_info: 
     height: 64
@@ -38,7 +44,7 @@ sensor:
     optical_center: 2
     translation: 0.002
     rotation: 0.0349
-  
+
   # Encoder parameters
   encoder:
     network: [
@@ -53,28 +59,37 @@ sensor:
     epochs: 120
     data_path: ~/ActionBranchingDQN/new_gripper_onfloor_imgs.pkl
 
-# Reward parameters
+
+# Custom shaped reward function parameters
 reward:
-  #custom: True
-  #shaped: True
-  terminal_reward: 10_000. 
+  custom: True
+  shaped: True
+  terminal_reward: 10_000.
   lift_reward: 300. # lift target object
   grasp_reward: 100.
   detect_reward: 10. # detected from segmentation mask
   close_penalty: 10.
   out_penalty: 10.
   time_penalty: 20.
+  table_clearing: False # False - picks only one item. With True the episode terminates after each objects are cleared. Table clearing works better with the curriculum parameter max object [1, 5] 
 
+# Generate new initial states until at least on object is within the FOV
+skip_empty_initial_state: True
 
-# MDP parameters
+# Use simplified problem formulation
+simplified: False
+# Depth + Actuator
+depth_observation: True
+# RGB + Depth + Actuator
+full_observation: True
+# Markov decision process parameters
+discount_factor: 0.99
+time_horizon: 300
+# normalize the input and rewards
+normalize: True
+
 policy:
-  algo_type: DDPG #[manual, DDPG, SAC]
-  max_translation: 0.03
-  max_yaw_rotation: 0.15
-  max_force: 100
-  discount_factor: 0.99
-  warm_start: 50_000
-  normalize: False  #normalize the input and rewards
+  algo_type: DDPG
 
   DDPG:
     batch_size: 32
@@ -82,13 +97,4 @@ policy:
     gamma: 0.99
     epsilon_start: 1
     epsilon_end: 0
-    epsilon_decay: 500_000
-
-  SAC:
-    max_iters: 10
-    batch_size: 32
-    layers: [64, 64]
-    buffer_size: 150_000
-    gradient_steps: 100
-    step_size: 0.001
-    total_epoch: 1_000
+    epsilon_decay: 200
