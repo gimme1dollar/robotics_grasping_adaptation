@@ -43,7 +43,7 @@ class Reward:
 
 class CustomReward(Reward):
     def __call__(self, obs, action, new_obs):
-        reward = 0.
+        reward, status = 0., robot.RobotEnv.Status.RUNNING
 
         # prerequisites
         self._target_id = self._robot.objects[0]
@@ -57,6 +57,7 @@ class CustomReward(Reward):
         reward += self._detect_reward * np.clip(len(det_objects), 0, 3)
         if det_target: 
             reward += self._detect_reward * 5 
+            status = robot.RobotEnv.Status.DETECT
             #print(f"reward on detection: {reward}")
 
         # Reward on grasping
@@ -64,6 +65,7 @@ class CustomReward(Reward):
         if dist_object < 0.07:
             self._grasping = True
             reward += self._grasp_reward
+            status = robot.RobotEnv.Status.GRASP
             #print(f"reward on grasping: {reward} by {dist_object}")
         else:
             self._grasping = False
@@ -72,6 +74,7 @@ class CustomReward(Reward):
         if self._grasping and robot_pos[2] > self._old_robot_height:
             self._lifting = True
             reward += self._lift_reward
+            status = robot.RobotEnv.Status.LIFT
             #print(f"reward on lifting: {reward} by {robot_pos[2] - self._old_robot_height}")
         else:
             self._lifting = False
@@ -93,12 +96,12 @@ class CustomReward(Reward):
         # return
         self._old_gripper_close = self._robot.gripper_close
         self._old_robot_height = robot_pos[2]
-        return reward, robot.RobotEnv.Status.RUNNING
+        return reward, status
 
         
 class GripperReward(Reward):
     def __call__(self, obs, action, new_obs):
-        reward = 0.
+        reward, status = 0., robot.RobotEnv.Status.RUNNING
         
         position, _ = self._robot.get_pose()
         robot_height = position[2]
@@ -158,4 +161,4 @@ class GripperReward(Reward):
 
         self._old_gripper_close = self._robot.gripper_close
         self._old_robot_height = robot_height
-        return reward, robot.RobotEnv.Status.RUNNING
+        return reward, status

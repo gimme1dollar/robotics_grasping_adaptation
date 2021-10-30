@@ -1,7 +1,7 @@
 # Simulation parameters
 simulation:
   real_time: False
-  visualize: True
+  visualize: False
   time_horizon: 130
   max_episode: 10_000_000
   mode: default

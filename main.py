@@ -128,7 +128,7 @@ def manual_test(config) :
             env.reset()
         print()
 
-def ddpg_test(config):
+def ddpg_test(config, is_training):
     wandb.init(project="grasping_ddpg")
 
     # build env
@@ -166,19 +166,23 @@ def ddpg_test(config):
 
         # take action 
         while True:
-            action = agent.epsilon_greedy_action(cur_state, action_dim, action_min, action_max)
+            if is_training:
+                action = agent.epsilon_greedy_action(cur_state, action_dim, action_min, action_max)
+                
+                # Warm start
+                if env.epoch < env.config['policy']['warm_start']:
+                    position, angle = p.getBasePositionAndOrientation(env.objects[0])
+                    orientation = p.getEulerFromQuaternion(angle)[2]
+                    answer = np.asarray(position)
+                    answer = np.append(answer, np.asarray(orientation))
+                    answer = np.append(answer, [0])
+                    action = tuple(map(sum, zip(action, answer)))
+            else:
+                action = agent.act(cur_state)
 
-            # Warm start
-            if env.epoch < env.config['policy']['warm_start']:
-                position, angle = p.getBasePositionAndOrientation(env.objects[0])
-                orientation = p.getEulerFromQuaternion(angle)[2]
-                answer = np.asarray(position)
-                answer = np.append(answer, np.asarray(orientation))
-                answer = np.append(answer, [0])
-                action = tuple(map(sum, zip(action, answer)))
+            nxt_state, reward, done, status = env.step(action)
 
-            nxt_state, reward, done, info = env.step(action)
-
+            # Visualize state
             #nxt_state[:,:,-1] = image_noise(nxt_state[:,:,-1])
             #plt.imshow(nxt_state[:,:,-1], cmap='gray')
             #plt.show()
@@ -191,7 +195,7 @@ def ddpg_test(config):
 
             step += 1; total_reward += reward
             cur_state = nxt_state
-            if done: success.append(1) if info['status'] == RobotEnv.Status.SUCCESS else success.append(0); break
+            if done: success.append(1) if status == RobotEnv.Status.SUCCESS else success.append(0); break
         total_step += step
 
         # success rate
@@ -203,13 +207,14 @@ def ddpg_test(config):
         # logging
         print(f"Episode: {epoch:7d} Total Reward: {total_reward:7.2f}\t", end=" ")
         print(f"Epsilon: {agent.epsilon:1.2f} \t", end=" ")
-        print(f"Success: {success_rate:0.2f} \t{info['status']}")
-        
+        print(f"Success: {success_rate:0.2f} \t{status}")
         wandb.log({"epoch"        : epoch})
         wandb.log({"total_step"   : total_step})
         wandb.log({"success_rate" : success_rate})
+        wandb.log({"status"       : status.value})
         wandb.log({"epsilon"      : agent.epsilon})
         wandb.log({"reward/total" : total_reward})
+        
 
         # agent traning with warm start
         if epoch > 0:
@@ -244,7 +249,8 @@ def main(args):
             manual_test(config)
         elif exp_algo == "DDPG":
             print("ddpg")
-            ddpg_test(config)
+            is_training = True if args.env_mode == 'training' else False
+            ddpg_test(config, is_training)
         elif exp_algo == "SAC":
             print("sac")
             sac_test(config)
@@ -262,6 +268,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--tst-mode', type=str, default='test',
+                        help='Mode of the program (default: test)')
     parser.add_argument('--env-name', type=str, default='robot_env',
                         help='Name of the environment (default: robot_env)')
     args = parser.parse_args()

@@ -19,7 +19,7 @@ from torch.distributions import Normal
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class ReplayBuffer():
-    def __init__(self, max_size=1000000):
+    def __init__(self, max_size=50_000):
         self.buffer = []
         self.max_size = max_size
         self.ptr = 0
@@ -125,6 +125,11 @@ class DDPG(object):
         action = action.cpu().data.numpy().flatten()
         action += np.random.normal(0, self.epsilon, size=dim)
         action = action.clip(low, high)
+        return action
+
+    def act(self, state):
+        action = self.actor_agent(state)
+        action = action.cpu().data.numpy().flatten()
         return action
 
     def update(self, update_iteration):

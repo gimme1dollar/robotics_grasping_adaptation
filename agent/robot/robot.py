@@ -25,11 +25,12 @@ class RobotEnv(World):
         CHECKPOINT = 3
 
     class Status(Enum):
+        FAIL = -1
         RUNNING = 0
-        SUCCESS = 1
-        FAIL = 2
-        TIME_LIMIT = 3
-        OUT_BOUND = 4
+        DETECT = 1
+        GRASP = 2
+        LIFT = 3
+        SUCCESS = 4
 
     def __init__(self, config, evaluate=False, test=False, validate=False):
         if not isinstance(config, dict):
@@ -199,7 +200,7 @@ class RobotEnv(World):
 
         # state update
         if self.status == RobotEnv.Status.SUCCESS: done = True
-        elif self.episode_step == self._time_horizon - 1: done, self.status = True, RobotEnv.Status.TIME_LIMIT
+        elif self.episode_step == self._time_horizon - 1: done = True
         else: done = False
         
         self.episode_step += 1
@@ -207,7 +208,7 @@ class RobotEnv(World):
 
         # return
         if done: self.trigger_event(RobotEnv.Events.END_OF_EPISODE, self)
-        return self.state, reward, done, {"status": self.status, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards}
+        return self.state, reward, done, self.status
         
     def step_sim(self, num_steps):
         """Advance the simulation by one step."""
