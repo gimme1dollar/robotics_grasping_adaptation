@@ -12,7 +12,7 @@ from torch.autograd import Variable
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def embed_state(obs):
-    obs = torch.from_numpy(obs[:,:,:3])
+    obs = torch.from_numpy(obs[:,:,:4])
     obs = obs.unsqueeze(0).permute(0, 3, 1, 2)
     obs = Variable(obs).to(device).float()
     return obs

@@ -1,8 +1,6 @@
 import numpy as np
 import pybullet as p
 
-from agent.robot import robot
-
 class Reward:
     """Simple reward function reinforcing upwards movement of grasped objects."""
 
@@ -43,7 +41,7 @@ class Reward:
 
 class CustomReward(Reward):
     def __call__(self, obs, action, new_obs):
-        reward, status = 0., robot.RobotEnv.Status.RUNNING
+        reward, status = 0., self._robot.RobotEnv.Status.RUNNING
 
         # prerequisites
         self._target_id = self._robot.objects[0]
@@ -57,7 +55,7 @@ class CustomReward(Reward):
         reward += self._detect_reward * np.clip(len(det_objects), 0, 3)
         if det_target: 
             reward += self._detect_reward * 5 
-            status = robot.RobotEnv.Status.DETECT
+            status = self._robot.RobotEnv.Status.DETECT
             #print(f"reward on detection: {reward}")
 
         # Reward on grasping
@@ -65,7 +63,7 @@ class CustomReward(Reward):
         if dist_object < 0.07:
             self._grasping = True
             reward += self._grasp_reward
-            status = robot.RobotEnv.Status.GRASP
+            status = self._robot.RobotEnv.Status.GRASP
             #print(f"reward on grasping: {reward} by {dist_object}")
         else:
             self._grasping = False
@@ -74,7 +72,7 @@ class CustomReward(Reward):
         if self._grasping and robot_pos[2] > self._old_robot_height:
             self._lifting = True
             reward += self._lift_reward
-            status = robot.RobotEnv.Status.LIFT
+            status = self._robot.RobotEnv.Status.LIFT
             #print(f"reward on lifting: {reward} by {robot_pos[2] - self._old_robot_height}")
         else:
             self._lifting = False
@@ -82,7 +80,7 @@ class CustomReward(Reward):
         if self._lifting and robot_pos[2] > 0.1 and object_pos[2] > 0.1:
             #print(f"lifting up to {object_pos[2]}")
             #print(f"*** success, rewarding {reward} ***")
-            return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
+            return self._terminal_reward, self._robot.RobotEnv.Status.SUCCESS
 
         # Penalty on poor grasping
         if self._old_gripper_close == False and self._robot.gripper_close == True:
@@ -101,18 +99,27 @@ class CustomReward(Reward):
         
 class GripperReward(Reward):
     def __call__(self, obs, action, new_obs):
-        reward, status = 0., robot.RobotEnv.Status.RUNNING
+        reward, status = 0., self._robot.Status.RUNNING
         
         position, _ = self._robot.get_pose()
         robot_height = position[2]
+        
+        # Range out of bound penalty
+        if (position[0] > 0.3) or (position[1] > 0.3):
+            reward -= self._out_penalty        
+            if (position[2] > 0.25) or (position[2] < 0):
+                reward -= self._out_penalty * 3
+        else:
+            status = self._robot.Status.IN_BOX
 
         if self._robot.object_detected():
             if not self._lifting:
                 self._start_height = robot_height
                 self._lifting = True
+                status = self._robot.Status.GRASP
 
             if robot_height - self._start_height > 0.15:
-                return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
+                return self._terminal_reward, self._robot.Status.SUCCESS
 
                 '''    
                 if self._table_clearing:
@@ -148,13 +155,7 @@ class GripperReward(Reward):
 
         # Time penalty
         reward -= self._time_penalty
-
-        # Range out of bound penalty
-        if (position[0] > 0.3) or (position[1] > 0.3):
-            reward -= self._out_penalty
-        if (position[2] > 0.25) or (position[2] < 0):
-            reward -= self._out_penalty * 3
-
+        
         # Poor grasp
         if self._old_gripper_close ^ self._robot.gripper_close:
             reward -= self._close_penalty

@@ -27,29 +27,25 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def default_test(config) :
+def default_test(config, is_training):
     # build env
     env = gym.make('gripper-env-v0', config=config)
     cur_state = env.reset()
-    #wandb.init(project="grasping_ddpg")
-
-    # encoder
-    encoder = AutoEncoder(config).to(device)
-    encoder.load_weight("./checkpoints/gripper/encoder_000018_.pth")
-    enc_state = encoder.encode(embed_state(cur_state))
-    state_dim = enc_state.flatten().shape[0]
+    wandb.init(project="grasping_ddpg")
 
     # model
-    img_h, img_w, img_c = 64, 64, 3
+    img_h, img_w, img_c = 64, 64, 4
+    state_dim = img_h * img_w * img_c
+    
     action_shape = env.action_space.shape
     action_dim = action_shape[0]
     action_min = float(env.action_space.low[0])
     action_max = float(env.action_space.high[0])
 
     agent = DDPG.DDPG(state_dim, action_dim, action_max, config.get('DDPG'))
-    agent.load_weight("./checkpoints/gripper/agent_000195_encoder.pth")
-    #wandb.watch(agent.actor_agent)
-    #wandb.watch(agent.critic_agent)
+    #agent.load_weight("./checkpoints/gripper/agent_000195_encoder.pth")
+    wandb.watch(agent.actor_agent)
+    wandb.watch(agent.critic_agent)
 
     # main loop
     max_episode = 1_000_000
@@ -59,22 +55,23 @@ def default_test(config) :
         step, total_reward = 0, 0.0
         
         cur_state = env.reset()
-        cur_state = encoder.encode(embed_state(cur_state))
         cur_state = cur_state.flatten()
 
         # take action 
         while True:
-            action = agent.epsilon_greedy_action(cur_state, action_dim, action_min, action_max)
-
-            nxt_state, reward, done, info = env.step(action)
-            nxt_state = encoder.encode(embed_state(nxt_state))
+            if is_training == True:
+                action = agent.epsilon_greedy_action(cur_state, action_dim, action_min, action_max)
+            else:
+                action = agent.act(cur_state)
+                
+            nxt_state, reward, done, status = env.step(action)
             nxt_state = nxt_state.flatten()
 
             agent.replay_buffer.push((cur_state, nxt_state, action, reward, np.float(done)))
 
             step += 1; total_reward += reward
             cur_state = nxt_state
-            if done: success.append(1) if info['status'] == RobotEnv.Status.SUCCESS else success.append(0); break
+            if done: success.append(1) if status == RobotEnv.Status.SUCCESS else success.append(0); break
         total_step += step
         if len(success) < 100:
             success_rate = np.mean(success)
@@ -84,16 +81,17 @@ def default_test(config) :
         # logging
         print(f"Episode: {epoch:7d} Total Reward: {total_reward:7.2f}\t", end=" ")
         print(f"Epsilon: {agent.epsilon:1.2f} \t", end=" ")
-        print(f"Position: {info['position']} \tSuccess: {success_rate:0.2f} \t{info['status']}")
-        #wandb.log({"epoch"        : epoch})
-        #wandb.log({"total_step"   : total_step})
-        #wandb.log({"success_rate" : success_rate})
-        #wandb.log({"epsilon"      : agent.epsilon})
-        #wandb.log({"reward/total" : total_reward})
+        print(f"Success: {success_rate:0.2f} \t{status}")
+        wandb.log({"epoch"        : epoch})
+        wandb.log({"total_step"   : total_step})
+        wandb.log({"status"       : status.value})
+        wandb.log({"success_rate" : success_rate})
+        wandb.log({"epsilon"      : agent.epsilon})
+        wandb.log({"reward/total" : total_reward})
 
         # agent traning with warm start
         if epoch > 0:
-            agent.update(1000) 
+            agent.update(100) 
         
         # save
         #if save_flag < success_rate: 
@@ -239,38 +237,48 @@ def sac_test(config):
 
 def main(args):
     env_name = args.env_name
+    
     config = io_utils.load_yaml(f"config/{env_name}.yaml")
     exp_algo = config['policy']['algo_type']
     exp_mode = config['simulation']['mode']
-
+    is_training = True if args.env_mode == 'training' else False
+        
     if env_name == "robot_env":
         if exp_algo == "manual":
             print("manual")
             manual_test(config)
         elif exp_algo == "DDPG":
             print("ddpg")
-            is_training = True if args.env_mode == 'training' else False
             ddpg_test(config, is_training)
         elif exp_algo == "SAC":
             print("sac")
             sac_test(config)
+            
+            
     elif env_name == "gripper_env":
         if exp_mode == "default":
             print("default")
-            default_test(config)
+            default_test(config, is_training)
         elif exp_mode == "image":
             print("image")
             image_test(config)
         elif exp_mode == "dynamics":
             print("dynamics")
             dynamics_test(config)
+            
+        elif exp_mode == "encoder":
+            print("image")
+            image_test(config)
+        elif exp_mode == "augmented":
+            print("image")
+            image_test(config)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tst-mode', type=str, default='test',
-                        help='Mode of the program (default: test)')
     parser.add_argument('--env-name', type=str, default='robot_env',
                         help='Name of the environment (default: robot_env)')
+    parser.add_argument('--env-mode', type=str, default='test',
+                        help='Mode of the program (default: test)')
     args = parser.parse_args()
     main(args)

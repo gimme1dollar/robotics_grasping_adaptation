@@ -14,7 +14,7 @@ from agent.utils import io_utils
 from agent.utils import transform_utils
 
 from agent.robot import sensor, encoder, actuator
-from agent.robot.rewards import CustomReward, GripperReward
+from agent.robot.rewards import GripperReward
 from agent.world.world import World 
 
 def _reset(robot, actuator, depth_sensor, skip_empty_states=False):
@@ -38,11 +38,11 @@ class GripperEnv(World):
         CHECKPOINT = 3
 
     class Status(Enum):
+        FAIL = -1
         RUNNING = 0
-        SUCCESS = 1
-        FAIL = 2
-        TIME_LIMIT = 3
-        OUT_BOUND = 4
+        IN_BOX = 1
+        GRASP = 2
+        SUCCESS = 3
 
     def __init__(self, config, evaluate=False, test=False, validate=False):
         if not isinstance(config, dict):
@@ -166,36 +166,29 @@ class GripperEnv(World):
         if self.status == GripperEnv.Status.SUCCESS:
             done = True
         elif self.episode_step == self.time_horizon - 1:
-            done, self.status = True, GripperEnv.Status.TIME_LIMIT
+            done = True
         else:
             done = False
         
         if done:
             self._trigger_event(GripperEnv.Events.END_OF_EPISODE, self)
-
-        position, _ = self.get_pose()
-        is_in_bound = "in" if (position[0] < 0.3) and (position[1] < 0.3) and (position[2] < 0.25) and (position[2] > 0) else "out"
-
+        
+        
         self.episode_step += 1
         self.obs = new_obs
         self.physics_client.stepSimulation()
         #return self.obs, reward, done, {"is_success":self.status==RobotEnv.Status.SUCCESS, "episode_step": self.episode_step, "episode_rewards": self.episode_rewards, "status": self.status}
-        return self.obs, reward, done, {"status": self.status, "position": is_in_bound}
+        return self.obs, reward, done, self.status
         
     def _observe(self):
-        if not self.depth_obs:
-            obs = np.array([])
-            for sensor in self._sensors:
-                obs = np.append(obs, sensor.get_state())
-            return obs
-        else:
-            rgb, depth, _ = self._camera.get_state()
-            sensor_pad = np.zeros(self._camera.state_space.shape[:2])
+        rgb, depth, _ = self._camera.get_state()
+        sensor_pad = np.zeros(self._camera.state_space.shape[:2])
 
-            sensor_pad = np.zeros(self._camera.state_space.shape[:2])
-            sensor_pad[0][0] = self._actuator.get_state()
-            obs_stacked = np.dstack((rgb, depth, sensor_pad))
-            return obs_stacked
+        sensor_pad = np.zeros(self._camera.state_space.shape[:2])
+        sensor_pad[0][0] = self._actuator.get_state()
+        #obs_stacked = np.dstack((rgb, depth, sensor_pad))
+        obs_stacked = np.dstack((rgb, depth))
+        return obs_stacked
 
     def setup_spaces(self):
         self.action_space = self._actuator.setup_action_space()

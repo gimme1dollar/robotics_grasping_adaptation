@@ -110,7 +110,7 @@ class DDPG(object):
         self.num_actor_update_iteration = 0
         self.num_training = 0
 
-    def update_epsilone(self, epoch, EPS_START=10, EPS_END=0, EPS_DECAY=10000):
+    def update_epsilone(self, epoch, EPS_START=1, EPS_END=0, EPS_DECAY=10000):
         if self.config == None:
             self.epsilon = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * epoch / EPS_DECAY)
         else:
