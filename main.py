@@ -7,16 +7,11 @@ from itertools import count
 
 import gym
 import agent
-from model import DDPG, SAC
+from model import DDPG
 from agent.utils import io_utils
 from agent.utils.augment_utils import *
-from agent.robot.robot import RobotEnv
+from agent.robot.robot import ArmEnv, GripperEnv
 from agent.robot.encoder import AutoEncoder, embed_state
-
-import stable_baselines3 as sb
-from stable_baselines3.sac.policies import MlpPolicy 
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
-from stable_baselines3.common.monitor import Monitor
 
 import torch
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -26,12 +21,45 @@ import wandb
 import warnings
 warnings.filterwarnings("ignore")
 
+def manual(config, env):
+    done = False
+    while(True):
+        action = np.zeros((5,), dtype=np.float)
+        query = input()
 
-def default_test(config, is_training):
-    # build env
-    env = gym.make('gripper-env-v0', config=config)
-    cur_state = env.reset()
-    wandb.init(project="grasping_ddpg")
+        if (query == "w"): #front
+            action[0] = 1.
+        elif (query == "s"): #back 
+            action[0] = -1.
+        elif (query == "d"): #right
+            action[1] = 1.
+        elif (query == "a"): #left
+            action[1] = -1.
+        elif (query == "t"): #down
+            action[2] = 1.
+        elif (query == "r"): #up
+            action[2] = -1.
+        elif (query == "q"): #rotate clockwise
+            action[3] = 1.
+        elif (query == "e"): #rotate counterclockwise
+            action[3] = -1.
+        elif (query == "f"): #close gripper
+            action[4] = 1.
+        elif (query == "g"): #open gripper
+            action[4] = -1.
+
+        obs, reward, done, _ = env.step(action)
+        obs = obs.astype(np.uint8)
+
+        if done:
+            obs = env.reset()
+
+def baseline(config, env,
+            exp_algo='DDPG', exp_ckpt=None, exp_enco=False, exp_mode='test',
+            exp_logg=False):
+    '''
+        DDPG baseline training
+    '''
 
     # model
     img_h, img_w, img_c = 64, 64, 4
@@ -43,9 +71,12 @@ def default_test(config, is_training):
     action_max = float(env.action_space.high[0])
 
     agent = DDPG.DDPG(state_dim, action_dim, action_max, config.get('DDPG'))
-    #agent.load_weight("./checkpoints/gripper/agent_000195_encoder.pth")
-    wandb.watch(agent.actor_agent)
-    wandb.watch(agent.critic_agent)
+    if exp_mode == 'test':
+        agent.load_weight(f"{exp_ckpt}")
+    if exp_logg == True:
+        wandb.init(project="grasping_ddpg")
+        wandb.watch(agent.actor_agent)
+        wandb.watch(agent.critic_agent)
 
     # main loop
     max_episode = 1_000_000
@@ -59,9 +90,9 @@ def default_test(config, is_training):
 
         # take action 
         while True:
-            if is_training == True:
+            if exp_mode == 'train':
                 action = agent.epsilon_greedy_action(cur_state, action_dim, action_min, action_max)
-            else:
+            elif exp_mode == 'test':
                 action = agent.act(cur_state)
                 
             nxt_state, reward, done, status = env.step(action)
@@ -71,7 +102,8 @@ def default_test(config, is_training):
 
             step += 1; total_reward += reward
             cur_state = nxt_state
-            if done: success.append(1) if status == RobotEnv.Status.SUCCESS else success.append(0); break
+            if done: success.append(1) if status == ArmEnv.Status.SUCCESS else success.append(0); break
+
         total_step += step
         if len(success) < 100:
             success_rate = np.mean(success)
@@ -82,203 +114,110 @@ def default_test(config, is_training):
         print(f"Episode: {epoch:7d} Total Reward: {total_reward:7.2f}\t", end=" ")
         print(f"Epsilon: {agent.epsilon:1.2f} \t", end=" ")
         print(f"Success: {success_rate:0.2f} \t{status}")
-        wandb.log({"epoch"        : epoch})
-        wandb.log({"total_step"   : total_step})
-        wandb.log({"status"       : status.value})
-        wandb.log({"success_rate" : success_rate})
-        wandb.log({"epsilon"      : agent.epsilon})
-        wandb.log({"reward/total" : total_reward})
+        if exp_logg == True:
+            wandb.log({"epoch"        : epoch})
+            wandb.log({"total_step"   : total_step})
+            wandb.log({"status"       : status.value})
+            wandb.log({"success_rate" : success_rate})
+            wandb.log({"epsilon"      : agent.epsilon})
+            wandb.log({"reward/total" : total_reward})
 
         # agent traning with warm start
-        if epoch > 0:
+        if epoch > config['policy']['warm_start']:
             agent.update(100) 
         
         # save
-        #if save_flag < success_rate: 
-        #    save_flag = success_rate
         if success_rate > 0.8 and len(success) > 10:
             agent.save_weight(f"./checkpoints/agent_{epoch:06d}.pth")
             exit()
     return
 
-def image_test(config) :
+def image_aug(config, 
+            exp_algo='DDPG', exp_enco=False, exp_mode='test',
+            exp_logg=False):
     return
 
-def dynamics_test(config) :
+def dynamics_aug(config, 
+            exp_algo='DDPG', exp_enco=False, exp_mode='test',
+            exp_logg=False):
     return
 
-def manual_test(config) :
-    # build env
-    env = gym.make('grasping-env-v0', config=config)
-    env.reset()
+def hybrid_aug(config, 
+            exp_algo='DDPG', exp_enco=False, exp_mode='test',
+            exp_logg=False):
+    return
 
-    # test 
-    while (True):
-        def get_grasp_position_angle(object_id):
-            position, orientation = p.getBasePositionAndOrientation(object_id)
-            grasp_angle = p.getEulerFromQuaternion(orientation)[2]
-            return position, grasp_angle
-
-        for _ in range(100):
-            object_id = env.objects[0]
-            position, grasp_angle = get_grasp_position_angle(object_id)
-            env.manual_control(position, grasp_angle)
-            env.reset()
-        print()
-
-def ddpg_test(config, is_training):
-    wandb.init(project="grasping_ddpg")
-
-    # build env
-    env = gym.make("grasping-env-v0", config=config)
-    cur_state = env.reset()
-
-    # encoder
-    #encoder = AutoEncoder(config).to(device)
-    #encoder.load_weight("./checkpoints/ddpg/encoder_000018_.pth")
-    #enc_state = encoder.encode(embed_state(cur_state))
-    #state_dim = enc_state.flatten().shape[0]
-
-    # model
-    img_h, img_w, img_c = 64, 64, 4
-    action_shape = env.action_space.shape
-    action_dim = action_shape[0]
-    action_min = float(env.action_space.low[0])
-    action_max = float(env.action_space.high[0])
-    state_dim = img_h * img_w * img_c
-    agent = DDPG.DDPG(state_dim, action_dim, action_max, config['policy']['DDPG'])
-    #agent.load_weight("./checkpoints/ddpg/agent_000195_.pth")
-    wandb.watch(agent.actor_agent)
-    wandb.watch(agent.critic_agent)
-
-    # main loop
-    max_episode = env.config['simulation']['max_episode']
-    success, total_step = [], 0
-    for epoch in range(max_episode):
-        agent.update_epsilone(epoch)
-        step, total_reward = 0, 0.0
-        
-        cur_state = env.reset()
-        #cur_state = encoder.encode(embed_state(cur_state))
-        cur_state = cur_state.flatten()
-
-        # take action 
-        while True:
-            if is_training:
-                action = agent.epsilon_greedy_action(cur_state, action_dim, action_min, action_max)
-                
-                # Warm start
-                if env.epoch < env.config['policy']['warm_start']:
-                    position, angle = p.getBasePositionAndOrientation(env.objects[0])
-                    orientation = p.getEulerFromQuaternion(angle)[2]
-                    answer = np.asarray(position)
-                    answer = np.append(answer, np.asarray(orientation))
-                    answer = np.append(answer, [0])
-                    action = tuple(map(sum, zip(action, answer)))
-            else:
-                action = agent.act(cur_state)
-
-            nxt_state, reward, done, status = env.step(action)
-
-            # Visualize state
-            #nxt_state[:,:,-1] = image_noise(nxt_state[:,:,-1])
-            #plt.imshow(nxt_state[:,:,-1], cmap='gray')
-            #plt.show()
-            #plt.pause(0.1) 
-
-            #nxt_state = encoder.encode(embed_state(nxt_state))
-            nxt_state = nxt_state.flatten()
-
-            agent.replay_buffer.push((cur_state, nxt_state, action, reward, np.float(done)))
-
-            step += 1; total_reward += reward
-            cur_state = nxt_state
-            if done: success.append(1) if status == RobotEnv.Status.SUCCESS else success.append(0); break
-        total_step += step
-
-        # success rate
-        if len(success) < 100:
-            success_rate = np.mean(success)
-        else:
-            success_rate = np.mean(success[-20:])
-        
-        # logging
-        print(f"Episode: {epoch:7d} Total Reward: {total_reward:7.2f}\t", end=" ")
-        print(f"Epsilon: {agent.epsilon:1.2f} \t", end=" ")
-        print(f"Success: {success_rate:0.2f} \t{status}")
-        wandb.log({"epoch"        : epoch})
-        wandb.log({"total_step"   : total_step})
-        wandb.log({"success_rate" : success_rate})
-        wandb.log({"status"       : status.value})
-        wandb.log({"epsilon"      : agent.epsilon})
-        wandb.log({"reward/total" : total_reward})
-        
-
-        # agent traning with warm start
-        if epoch > 0:
-            agent.update(10) 
-        
-        # save
-        if success_rate > 0.7 and len(success) > 20:
-            agent.save_weight(f"./checkpoints/robot/agent_{epoch:06d}.pth")
-            #exit()
-
-def sac_test(config):
-    wandb.init(project="grasping_sac")
-
-    # build env
-    env = gym.make('grasping-env-v0', config=config)
-
-    # encoder
-    sac = SAC.SAC(env, env, config['policy'])
-    sac.learn()
-    
-    env.close()
 
 def main(args):
     env_name = args.env_name
-    
-    config = io_utils.load_yaml(f"config/{env_name}.yaml")
-    exp_algo = config['policy']['algo_type']
-    exp_mode = config['simulation']['mode']
-    is_training = True if args.env_mode == 'training' else False
-        
-    if env_name == "robot_env":
-        if exp_algo == "manual":
-            print("manual")
-            manual_test(config)
-        elif exp_algo == "DDPG":
-            print("ddpg")
-            ddpg_test(config, is_training)
-        elif exp_algo == "SAC":
-            print("sac")
-            sac_test(config)
-            
-            
-    elif env_name == "gripper_env":
-        if exp_mode == "default":
-            print("default")
-            default_test(config, is_training)
-        elif exp_mode == "image":
-            print("image")
-            image_test(config)
-        elif exp_mode == "dynamics":
-            print("dynamics")
-            dynamics_test(config)
-            
-        elif exp_mode == "encoder":
-            print("image")
-            image_test(config)
-        elif exp_mode == "augmented":
-            print("image")
-            image_test(config)
+    env_type = args.env_type
+    exp_algo = args.exp_algorithm
+    exp_mode = args.exp_mode
+    exp_ckpt = args.exp_checkpoint
+    exp_enco = args.exp_encoder
+    exp_logg = args.exp_logging
+    config = io_utils.load_yaml(f"config/{env_name}_env.yaml")
 
+    assert( exp_mode == "train" or exp_mode == "test")
+    if exp_mode == "test":
+        assert(exp_ckpt is not None)
+
+    print()
+    print(f"=======================================================")
+    print(f"========== env_name: {env_name} ")
+    print(f"========== env_type: {env_type} ")
+    print(f"========== exp_algo: {exp_algo} ")
+    print(f"========== exp_mode: {exp_mode} ")
+    print(f"========== exp_ckpt: {exp_ckpt} ")
+    print(f"========== exp_enco: {exp_enco} ")
+    print(f"========== exp_logg: {exp_logg} ")
+    print(f"=======================================================")
+    print()
+
+
+    env = gym.make(f'{env_name}-env-v0', config=config)
+    
+    if env_type == "manual":
+        print("manual control")
+        manual(config, env)    
+
+    elif env_type == "default":
+        print("environment for basline model")
+        baseline(config, env,
+                    exp_algo, exp_ckpt, exp_enco, exp_mode, exp_logg)
+
+    elif env_type == "image":
+        print("image augmentation")
+        image_aug(config, 
+                    exp_algo, exp_enco, exp_mode, exp_logg)
+
+    elif env_type == "dynamics":
+        print("dynamics augmentation")
+        dynamics_aug(config, 
+                    exp_algo, exp_enco, exp_mode, exp_logg)
+
+    elif env_type == "hybrid":
+        print("hybrid augmentation")
+        hybrid_aug(config, 
+                    exp_algo, exp_enco, exp_mode, exp_logg)
+            
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env-name', type=str, default='robot_env',
-                        help='Name of the environment (default: robot_env)')
-    parser.add_argument('--env-mode', type=str, default='test',
-                        help='Mode of the program (default: test)')
+    parser.add_argument('--env-name', type=str, default='robot',
+                        help='Env name (default: robot_env)')
+    parser.add_argument('--env-type', type=str, default='default',
+                        help='Env type (default/image/dynamics/hybrid) (default: default)')
+    parser.add_argument('--exp-algorithm', type=str, default='DDPG',
+                        help='Exp algorithm (default: DDPG)')
+    parser.add_argument('--exp-mode', type=str, default='test',
+                        help='Exp mode (train/test) (default: test)')
+    parser.add_argument('--exp-checkpoint', type=str, default='None',
+                        help='Exp checkpoint')
+    parser.add_argument('--exp-encoder', type=str, default='False',
+                        help='Exp with encoder (default: False)')
+    parser.add_argument('--exp-logging', type=str, default='False',
+                        help='Exp with logging on wandb (default: False)')
     args = parser.parse_args()
+
     main(args)
