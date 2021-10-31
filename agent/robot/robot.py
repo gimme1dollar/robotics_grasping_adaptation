@@ -1,3 +1,4 @@
+import math
 import os
 import time
 import numpy as np
@@ -13,11 +14,262 @@ from gym import spaces
 from agent.utils import io_utils
 from agent.utils import transform_utils
 
+from agent.world.model import Model_kuka, Model_gripper
 from agent.robot import sensor, encoder, actuator
-from agent.robot.rewards import CustomReward
+from agent.robot.rewards import CustomReward, GripperReward
 from agent.world.world import World 
 
-class RobotEnv(World):
+
+def _reset(robot, actuator, depth_sensor):
+    """Reset until an object is within the fov of the camera."""
+    ok = False
+    while not ok:
+        robot.reset_sim() #world + scene reset
+        robot.reset_model() #robot model
+        actuator.reset()
+        _, _, mask = depth_sensor.get_state()
+        ok = len(np.unique(mask)) > 2  # plane and gripper are always visible
+
+
+class GripperEnv(World):
+    class Events(Enum):
+        START_OF_EPISODE = 0
+        END_OF_EPISODE = 1
+        CLOSE = 2
+        CHECKPOINT = 3
+
+    class Status(Enum):
+        FAIL = -1
+        RUNNING = 0
+        IN_BOX = 1
+        GRASP = 2
+        SUCCESS = 3
+
+    def __init__(self, config, evaluate=False, test=False, validate=False):
+        if not isinstance(config, dict):
+            config = io_utils.load_yaml(config)
+        
+        super().__init__(config, evaluate=evaluate, test=test, validate=validate)
+        self._step_time = collections.deque(maxlen=10000)
+        self.time_horizon = config['simulation']['time_horizon']
+        self._workspace = {'lower': np.array([-1., -1., -1]),
+                           'upper': np.array([1., 1., 1.])}
+        self.model_path = config['robot']['model_path']
+
+        self.depth_obs = config.get('depth_observation', False)
+
+        self._initial_height = 1.0
+        self._init_ori = transform_utils.quaternion_from_euler(np.pi, 0., 0.)
+
+        self._model = None
+        self._joints = None
+        self._left_finger, self._right_finger = None, None
+        self.main_joints = [0, 1, 2, 3] #FIXME make it better
+        self._left_finger_id = 7
+        self._right_finger_id = 9
+        self._fingers = [self._left_finger_id, self._right_finger_id]
+
+        self._actuator = actuator.Gripper(self, config)
+
+        self._camera = sensor.RGBDSensor(config['sensor'], self)
+
+        self._reward_fn = GripperReward(config['reward'], self)
+
+        # Assign the sensors
+        self._sensors = [self._camera]
+
+        self._callbacks = {GripperEnv.Events.START_OF_EPISODE: [],
+                        GripperEnv.Events.END_OF_EPISODE: [],
+                        GripperEnv.Events.CLOSE: [],
+                        GripperEnv.Events.CHECKPOINT: []}
+        self.register_events(evaluate, config)
+        self.sr_mean = 0.
+        self.setup_spaces()
+
+    def register_events(self, evaluate, config):
+        # Setup the reset function
+        reset = functools.partial(_reset, self, self._actuator, self._camera)
+
+        # Register callbacks
+        self.register_callback(GripperEnv.Events.START_OF_EPISODE, reset)
+        self.register_callback(GripperEnv.Events.START_OF_EPISODE, self._camera.reset)
+        self.register_callback(GripperEnv.Events.START_OF_EPISODE, self._reward_fn.reset)
+        self.register_callback(GripperEnv.Events.CLOSE, super().close)
+
+
+    def reset(self):
+        self._trigger_event(GripperEnv.Events.START_OF_EPISODE)
+        self.episode_step = 0
+        self.episode_rewards = np.zeros(self.time_horizon)
+        self.status = GripperEnv.Status.RUNNING
+        self.obs = self._observe()
+
+        return self.obs
+
+    def reset_model(self):
+        """Reset the task.
+
+        Returns:
+            Observation of the initial state.
+        """
+        self.endEffectorAngle = 0.
+        start_pos = [0., 0., self._initial_height]
+        self._model = self.add_model(self.model_path, start_pos, self._init_ori)
+        self._joints = self._model.joints
+        self.robot_id = self._model.model_id
+        self._left_finger = self._model.joints[self._left_finger_id]
+        self._right_finger = self._model.joints[self._right_finger_id]
+
+    def add_model(self, path, start_pos, start_orn, scaling=1.):
+        model = Model_gripper(self.physics_client)
+        model.load_model(path, start_pos, start_orn, scaling)
+        self.models.append(model)
+        return model
+
+    def _trigger_event(self, event, *event_args):
+        for fn, args, kwargs in self._callbacks[event]:
+            fn(*(event_args + args), **kwargs)
+
+    def register_callback(self, event, fn, *args, **kwargs):
+        """Register a callback associated with the given event."""
+        self._callbacks[event].append((fn, args, kwargs))
+
+    def step(self, action):
+        """Advance the Task by one step.
+
+        Args:
+            action (np.ndarray): The action to be executed.
+
+        Returns:
+            A tuple (obs, reward, done, info), where done is a boolean flag
+            indicating whether the current episode finished.
+        """
+        if self._model is None:
+            self.reset()
+
+        self._actuator.step(action)
+
+        new_obs = self._observe()
+
+        reward, self.status = self._reward_fn(self.obs, action, new_obs)
+        #self.episode_rewards[self.episode_step] = reward
+
+
+        if self.status == GripperEnv.Status.SUCCESS:
+            done = True
+        elif self.episode_step == self.time_horizon - 1:
+            done = True
+        else:
+            done = False
+        
+        if done:
+            self._trigger_event(GripperEnv.Events.END_OF_EPISODE, self)
+        
+        
+        self.episode_step += 1
+        self.obs = new_obs
+        self.physics_client.stepSimulation()
+        return self.obs, reward, done, self.status
+        
+    def _observe(self):
+        rgb, depth, _ = self._camera.get_state()
+        sensor_pad = np.zeros(self._camera.state_space.shape[:2])
+        sensor_pad[0][0] = self._actuator.get_state()
+        #obs_stacked = np.dstack((rgb, depth, sensor_pad))
+        obs_stacked = np.dstack((rgb, depth))
+        return obs_stacked
+
+    def setup_spaces(self):
+        self.action_space = self._actuator.setup_action_space()
+        if not self.depth_obs:
+            low, high = np.array([]), np.array([])
+            for sensor in self._sensors:
+                low = np.append(low, sensor.state_space.low)
+                high = np.append(high, sensor.state_space.high)
+            self.observation_space = gym.spaces.Box(low, high, dtype=np.float32)
+        else:
+            shape = self._camera.state_space.shape
+            self.observation_space = gym.spaces.Box(low=0, high=255,
+                                                    shape=(shape[0], shape[1], 2))
+
+    def absolute_pose(self, target_pos, target_orn):
+        # target_pos = self._enforce_constraints(target_pos)
+
+        target_pos[1] *= -1
+        target_pos[2] = -1 * (target_pos[2] - self._initial_height)
+
+        # _, _, yaw = transform_utils.euler_from_quaternion(target_orn)
+        # yaw *= -1
+        yaw = target_orn
+        comp_pos = np.r_[target_pos, yaw]
+
+        for i, joint in enumerate(self.main_joints):
+            self._joints[joint].set_position(comp_pos[i])
+        
+        self.run(0.1)
+
+    def relative_pose(self, translation, yaw_rotation):
+        pos, orn = self._model.get_pose()
+        _, _, yaw = transform_utils.euler_from_quaternion(orn)
+        #Calculate transformation matrices
+        T_world_old = transform_utils.compose_matrix(
+            angles=[np.pi, 0., yaw], translate=pos)
+        T_old_to_new = transform_utils.compose_matrix(
+            angles=[0., 0., yaw_rotation], translate=translation)
+        T_world_new = np.dot(T_world_old, T_old_to_new)
+        self.endEffectorAngle += yaw_rotation
+        target_pos, target_orn = transform_utils.to_pose(T_world_new)
+        self.absolute_pose(target_pos, self.endEffectorAngle)
+
+    def close_gripper(self):
+        self.gripper_close = True
+        self._target_joint_pos = 0.05
+        self._left_finger.set_position(self._target_joint_pos)
+        self._right_finger.set_position(self._target_joint_pos)
+
+        self.run(0.2)
+
+    def open_gripper(self):
+        self.gripper_close = False
+        self._target_joint_pos = 0.0
+        self._left_finger.set_position(self._target_joint_pos)
+        self._right_finger.set_position(self._target_joint_pos)
+
+        self.run(0.2)
+
+    def _enforce_constraints(self, position):
+        """Enforce constraints on the next robot movement."""
+        if self._workspace:
+            position = np.clip(position,
+                               self._workspace['lower'],
+                               self._workspace['upper'])
+        return position
+    
+    def get_gripper_width(self):
+        """Query the current opening width of the gripper."""
+        left_finger_pos = 0.05 - self._left_finger.get_position()
+        right_finger_pos = 0.05 - self._right_finger.get_position()
+
+        return left_finger_pos + right_finger_pos
+
+    def object_detected(self, tol=0.005):
+        """Grasp detection by checking whether the fingers stalled while closing."""
+        return self._target_joint_pos == 0.05 and self.get_gripper_width() > tol
+
+    def get_pose(self):
+        return self._model.get_pose()
+
+    def camera_pose(self):
+        return self._model.get_pose()
+
+    def gripper_pose(self):
+        return self._model.get_pose()
+
+    def is_discrete(self):
+        return self._actuator.is_discrete()
+
+
+class ArmEnv(World):
     class Events(Enum):
         START_OF_EPISODE = 0
         END_OF_EPISODE = 1
@@ -36,139 +288,119 @@ class RobotEnv(World):
         if not isinstance(config, dict):
             config = io_utils.load_yaml(config)
         self.config = config
-        
+
         super().__init__(config, evaluate=evaluate, test=test, validate=validate)
-        self.status = None
         self._step_time = collections.deque(maxlen=10000)
-        self.history = []
-        self.sr_mean = 0.
+        self.time_horizon = config['simulation']['time_horizon']
         self._workspace = {'lower': np.array([-1., -1., -1]),
                            'upper': np.array([1., 1., 1.])}
+        self.model_path = config['robot']['model_path']
+        self.depth_obs = config.get('depth_observation', False)
+        self.full_obs = config.get('full_observation', False)
+        self._initial_height = 0.3
+        #self._init_ori = transform_utils.quaternion_from_euler(0., 0., math.pi)
+        self._init_ori = [0.000000, 0.000000, 0.000000, 1.000000]
+        
+        ## FOR KUKA ROBOT
+        self.maxForce = 100.
+        self.fingerAForce = 2
+        self.fingerBForce = 2.5
+        self.fingerTipForce = 2
+        self.useInverseKinematics = 1
+        self.useNullSpace = 0
+        self.useOrientation = 1
+        self.kukaEndEffectorIndex = 6
+        self.kukaGripperIndex = 7
+        #lower limits for null space
+        self.ll = [-.967, -2, -2.96, 0.19, -2.96, -2.09, -3.05]
+        #upper limits for null space
+        self.ul = [.967, 2, 2.96, 2.29, 2.96, 2.09, 3.05]
+        #joint ranges for null space
+        self.jr = [5.8, 4, 5.8, 4, 5.8, 4, 6]
+        #restposes for null space
+        self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0]
+        #joint damping coefficents
+        self.jd = [.1] * 14
+        ## END KUKA STUFF
 
-        # Model models
-        self._body, self._mount, self._gripper = None, None, None
-        self._robot_body_asset = config['robot']['body_path']
-        self._robot_mount_asset = config['robot']['mount_path']
-        self._robot_gripper_asset = config['robot']['gripper_path']
+        self._left_finger_id = 13
+        self._right_finger_id = 11
+        self._fingers = [self._left_finger_id, self._right_finger_id]
 
-        self._robot_body_id = None
-        self._robot_mount_id = None
-        self._robot_gripper_id = None
+        self._model = None
+        self._joints = None
+        self._left_finger, self._right_finger = None, None
+        self._actuator = actuator.Kuka(self, config)
 
-        # Assign the actuators
-        self._actuator = actuator.Actuator(config['policy'], self)
-        self.action = None
+        self._camera = sensor.RGBDSensor(config['sensor'], self)
 
-        self._robot_body_joint_indices = []
-        self._joint_epsilon = 1e-3
-
-        self.gripper_close = False
+        self._reward_fn = CustomReward(config['reward'], self)
 
         # Assign the sensors
-        self._camera = sensor.RGBDSensor(config['sensor'], self)
         self._sensors = [self._camera]
-        self.state = None
-
-        # Assign the reward fn
-        self._reward_fn = CustomReward(config['reward'], self)
-        self.episode_step = 0
-        self.episode_rewards = -5000
-
-        # Assign callbacks
-        self._callbacks = {RobotEnv.Events.START_OF_EPISODE: [],
-                        RobotEnv.Events.END_OF_EPISODE: [],
-                        RobotEnv.Events.CLOSE: [],
-                        RobotEnv.Events.CHECKPOINT: []}
+        self._callbacks = {ArmEnv.Events.START_OF_EPISODE: [],
+                        ArmEnv.Events.END_OF_EPISODE: [],
+                        ArmEnv.Events.CLOSE: [],
+                        ArmEnv.Events.CHECKPOINT: []}
         self.register_events(evaluate, config)
+        self.sr_mean = 0.
+        self.setup_spaces()
 
-        # Setup for spaces
-        shape = self._camera.state_space.shape
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(shape[0], shape[1], 4))
-        self.action_space = gym.spaces.Box(-1., 1., shape=(4,), dtype=np.float32)
+    def register_events(self, evaluate, config):
+        # Setup the reset function
+        reset = functools.partial(_reset, self, self._actuator, self._camera)
 
+        # Register callbacks
+        self.register_callback(ArmEnv.Events.START_OF_EPISODE, reset)
+        self.register_callback(ArmEnv.Events.START_OF_EPISODE, self._camera.reset)
+        self.register_callback(ArmEnv.Events.START_OF_EPISODE, self._reward_fn.reset)
+        self.register_callback(ArmEnv.Events.CLOSE, super().close)
 
-    ## Reset
     def reset(self):
+        self._trigger_event(ArmEnv.Events.START_OF_EPISODE)
+        self.episode_step = 0
+        self.episode_rewards = np.zeros(self.time_horizon)
+        self.status = ArmEnv.Status.RUNNING
+        self.obs = self._observe()
+
+        return self.obs
+
+    def reset_model(self):
         """Reset the task.
 
         Returns:
             Observation of the initial state.
         """
-        self.trigger_event(RobotEnv.Events.START_OF_EPISODE)
-
-        # enable torque control
-        #
-        if self.status == RobotEnv.Status.SUCCESS:
-            self.history.append(1)
-        else:
-            self.history.append(0)
-
-        self.episode_step = 0
-        self.episode_rewards = 0
-        self.status = RobotEnv.Status.RUNNING
-        self.state = self._observe()
-
-        return self.state
-
-    def reset_model(self):
-        # Robot body
-        self.endEffectorAngle = 0.
-        #start_pos = [0., 0., self._initial_height]
-        self._body = self.add_model(
-            self._robot_body_asset, [0, 0, 0.4], p.getQuaternionFromEuler([0, 0, 0]))
-        self._robot_body_id = self._body.model_id
-        robot_joint_info = [p.getJointInfo(self._robot_body_id, i) for i in range(
-            p.getNumJoints(self._robot_body_id))]
-        self._robot_body_joint_indices = [x[0] for x in robot_joint_info if x[2] == p.JOINT_REVOLUTE]
         
-        # Robot mount  
-        self._mount = self.add_model(
-            self._robot_mount_asset, [0, 0, 0.2], p.getQuaternionFromEuler([0, 0, 0]))
-        self._robot_mount_id = self._mount.model_id
-
-        # Robot gripper     
-        self._gripper = self.add_model(
-            self._robot_gripper_asset, [0, 0, 1], p.getQuaternionFromEuler([0, 0, 0]))
-        self._robot_gripper_id = self._gripper.model_id
-        self._robot_end_effector_link_index = 9
-        self._robot_tool_offset = [0, 0, -0.05]
+        start_pos = [-0.8, 0.0, -0.25]
+        ee_pos = [0.0, 0.0, self._initial_height]
         
-        p.createConstraint(self._robot_body_id, self._robot_end_effector_link_index, self._robot_gripper_id, 0, jointType=p.JOINT_FIXED, 
-                        jointAxis=[0, 0, 0], parentFramePosition=[0, 0, 0], childFramePosition=self._robot_tool_offset, childFrameOrientation=p.getQuaternionFromEuler([0, 0, np.pi/2]))
+        self.endEffectorAngle = 0
+        self._model = self.add_model(self.model_path, start_pos, self._init_ori)
+        self._joints = self._model.joints
+        self.robot_id = self._model.model_id
+        self._left_finger = self._model.joints[self._left_finger_id]
+        self._right_finger = self._model.joints[self._right_finger_id]
+        count = 0
+        while abs(self._initial_height - self.get_pose()[0][2]) > 0.01 and count < 50:
+            self.absolute_pose(ee_pos, 0.0)
+            count += 1
 
-        return
 
-    def reset_positions(self):
-        robot_home_joint_config = [-np.pi, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0]
-        p.setJointMotorControlArray(
-            self._robot_body_id, self._robot_body_joint_indices,
-            p.POSITION_CONTROL, robot_home_joint_config,
-            positionGains=0.03 * np.ones(len(self._robot_body_joint_indices))
-        )
+    def add_model(self, path, start_pos, start_orn, scaling=1.):
+        model = Model_kuka(self.physics_client)
+        model.load_model(path, start_pos, start_orn, scaling)
+        self.models.append(model)
+        return model
 
-        timeout_t0 = time.time()
-        while True:
-            # Keep moving until joints reach the target configuration
-            current_joint_state = [
-                p.getJointState(self._robot_body_id, i)[0]
-                for i in self._robot_body_joint_indices]
+    def _trigger_event(self, event, *event_args):
+        for fn, args, kwargs in self._callbacks[event]:
+            fn(*(event_args + args), **kwargs)
 
-            if all([np.abs(current_joint_state[i] - robot_home_joint_config[i]) < self._joint_epsilon
-                    for i in range(len(self._robot_body_joint_indices))]):
-                break
+    def register_callback(self, event, fn, *args, **kwargs):
+        """Register a callback associated with the given event."""
+        self._callbacks[event].append((fn, args, kwargs))
 
-            if time.time()-timeout_t0 > 10:
-                print(
-                    "Timeout: robot is taking longer than 10s to reach the target joint state. Skipping...")
-                p.setJointMotorControlArray(
-                    self._robot_body_id, self._robot_body_joint_indices,
-                    p.POSITION_CONTROL, robot_home_joint_config,
-                    positionGains=np.ones(len(self._robot_body_joint_indices))
-                )
-                break
-            self.step_sim(1)
-        
-    ## Step
     def step(self, action):
         """Advance the Task by one step.
 
@@ -179,129 +411,179 @@ class RobotEnv(World):
             A tuple (obs, reward, done, info), where done is a boolean flag
             indicating whether the current episode finished.
         """
-        if self._body is None or self._mount is None or self._gripper is None:
-            print(f"body {self._body}, mount {self._mount}, gripper {self._gripper}")
+        self.episode_step += 1
+        done = False
+
+        if self._model is None:
             self.reset()
 
-        # action
-        target = self.position_to_joints(action)
-        if action[-1] > 0.5: self.open_gripper()
-        else: self.close_gripper()
-        self._act(target)
+        if self.episode_step < 1: 
+            return self.obs, 0, done, self.status
+            
+        self._actuator.step(action)
+        new_obs = self._observe()
 
-        # observe
-        new_state = self._observe()
-        #print(f"state: {new_obs}")
+        reward, self.status = self._reward_fn(self.obs, action, new_obs)
+        self.episode_rewards[self.episode_step] = reward
 
-        # reward
-        reward, self.status = self._reward_fn(self.state, action, new_state)
-        self.episode_rewards += reward
-        #print(f"reward: {reward}")
+        if self.status == ArmEnv.Status.SUCCESS or self.episode_step == self.time_horizon - 1:
+            done = True
+            self._trigger_event(ArmEnv.Events.END_OF_EPISODE, self)
+            
+        self.obs = new_obs
+        self.physics_client.stepSimulation()
+        return self.obs, reward, done, self.status
 
-        # state update
-        if self.status == RobotEnv.Status.SUCCESS: done = True
-        elif self.episode_step == self._time_horizon - 1: done = True
-        else: done = False
-        
-        self.episode_step += 1
-        self.state = new_state
-
-        # return
-        if done: self.trigger_event(RobotEnv.Events.END_OF_EPISODE, self)
-        return self.state, reward, done, self.status
-        
-    def step_sim(self, num_steps):
-        """Advance the simulation by one step."""
-        for _ in range(int(num_steps)):
-            p.stepSimulation()
-            if self._robot_gripper_id is not None:
-                # Constraints
-                gripper_joint_positions = np.array([p.getJointState(self._robot_gripper_id, i)[0] 
-                                                    for i in range(p.getNumJoints(self._robot_gripper_id))])
-                p.setJointMotorControlArray(
-                    self._robot_gripper_id, 
-                    [6, 3, 8, 5, 10], 
-                    p.POSITION_CONTROL,
-                    [
-                        gripper_joint_positions[1], 
-                        -gripper_joint_positions[1], 
-                        -gripper_joint_positions[1], 
-                        gripper_joint_positions[1],
-                        gripper_joint_positions[1]
-                    ],
-                    positionGains=np.ones(5)
-                )
-
-    ## Observe
     def _observe(self):
-        rgb, depth, mask = self._camera.get_state()
+        rgb, depth, _ = self._camera.get_state()
+        sensor_pad = np.zeros(self._camera.state_space.shape[:2])
+        sensor_pad[0][0] = self._actuator.get_state()
+        #obs_stacked = np.dstack((rgb, depth, sensor_pad))
+        obs_stacked = np.dstack((rgb, depth))
+        return obs_stacked
 
-        observation = np.dstack((rgb, depth))
-        return observation
+    def setup_spaces(self):
+        self.action_space = self._actuator.setup_action_space()
+        if not self.depth_obs and not self.full_obs:
+            low, high = np.array([]), np.array([])
+            for sensor in self._sensors:
+                low = np.append(low, sensor.state_space.low)
+                high = np.append(high, sensor.state_space.high)
+            self.observation_space = gym.spaces.Box(low, high, dtype=np.float32)
+        else:
+            shape = self._camera.state_space.shape
+            
+            if self.full_obs: # RGB + Depth + Actuator
+                self.observation_space = gym.spaces.Box(low=0, high=255,
+                                                    shape=(shape[0], shape[1], 5))
+            else: # Depth + Actuator obs
+                self.observation_space = gym.spaces.Box(low=0, high=255,
+                                                    shape=(shape[0], shape[1], 2))
 
-    def gripper_pose(self):
-        return self._gripper.get_pose()
+    def absolute_pose(self, target_pos, target_orn):
+        dx = target_pos[0]
+        dy = target_pos[1]
+        dz = target_pos[2]
 
-    def camera_pose(self):
-        pos, orn = self._gripper.get_pose()
-        pos = tuple(map(sum, zip(pos, (0.00, 0.00, 0.25))))
-        orn = tuple(map(sum, zip(orn, (0.00, 0.00, 0.00, 0.00))))
-        return (pos, orn)
+        #restrict the motion to avoid kinematic singularities
+        if dx > 0.07:
+            dx = 0.07
+        if dx < -0.22:
+            dx = -0.22
+        if dy > 0.35:
+            dy = 0.35
+        if dy < -0.2:
+            dy = -0.2
+        if dz > 0.27:
+             dz = 0.27
+        if dz < 0.123:
+             dz = 0.123
+        pos = [dx,dy,dz]
+        orn = self.physics_client.getQuaternionFromEuler([0, -math.pi, 0])
 
-    def object_detected(self, tol=0.5):
-        """Grasp detection by checking whether the fingers stalled while closing."""
-        rgb, depth, mask = self._camera.get_state()
-        return mask
+        if (self.useNullSpace == 1):
+            if (self.useOrientation == 1):
+                jointPoses = self.physics_client.calculateInverseKinematics(self.robot_id, self.kukaEndEffectorIndex, pos,
+                                                          orn, self.ll, self.ul, self.jr, self.rp)
+            else:
+                jointPoses = self.physics_client.calculateInverseKinematics(self.robot_id,
+                                                        self.kukaEndEffectorIndex,
+                                                        pos,
+                                                        lowerLimits=self.ll,
+                                                        upperLimits=self.ul,
+                                                        jointRanges=self.jr,
+                                                        restPoses=self.rp)
+        else:
+            if (self.useOrientation == 1):
+                jointPoses = self.physics_client.calculateInverseKinematics(self.robot_id,
+                                                            self.kukaEndEffectorIndex,
+                                                            pos,
+                                                            orn,
+                                                            jointDamping=self.jd)
+            else:
+                jointPoses = self.physics_client.calculateInverseKinematics(self.robot_id, self.kukaEndEffectorIndex, pos)
 
-    ## Action
-    def _act(self, target, speed=0.03):
-        assert len(self._robot_body_joint_indices) == len(target)
+        for i in range(self.kukaEndEffectorIndex):
+            self.physics_client.setJointMotorControl2(bodyUniqueId=self.robot_id,
+                                    jointIndex=i,
+                                    controlMode=self.physics_client.POSITION_CONTROL,
+                                    targetPosition=jointPoses[i],
+                                    targetVelocity=0,
+                                    force=self.maxForce,
+                                    positionGain=0.3,
+                                    velocityGain=1)
 
-        p.setJointMotorControlArray(
-            self._robot_body_id, self._robot_body_joint_indices,
-            p.POSITION_CONTROL, target,
-            positionGains=speed * np.ones(len(self._robot_body_joint_indices))
-        )
+        self.physics_client.setJointMotorControl2(self.robot_id,
+                                self.kukaGripperIndex,
+                                self.physics_client.POSITION_CONTROL,
+                                targetPosition=target_orn,
+                                force=self.maxForce)
+        self.run(0.1)
 
-        self.step_sim(1)
-        return
-
-    def open_gripper(self):
-        self.gripper_close = False
-        p.setJointMotorControl2(
-            self._robot_gripper_id, 1, p.VELOCITY_CONTROL, targetVelocity=-5, force=100)
-        return
+    def relative_pose(self, translation, yaw_rotation):
+        pos, orn = self._model.get_pose()
+        _, _, yaw = transform_utils.euler_from_quaternion(orn)
+        #Calculate transformation matrices
+        translation[0] = -translation[0]
+        translation[1] = -translation[1]
+        T_world_old = transform_utils.compose_matrix(
+            angles=[np.pi, 0., yaw], translate=pos)
+        T_old_to_new = transform_utils.compose_matrix(
+            angles=[0., 0., yaw_rotation], translate=translation)
+        T_world_new = np.dot(T_world_old, T_old_to_new)
+        self.endEffectorAngle += yaw_rotation
+        target_pos, target_orn = transform_utils.to_pose(T_world_new)
+        _, _, yaw = transform_utils.euler_from_quaternion(target_orn)
+        self.endEffectorAngle += yaw_rotation
+        self.absolute_pose(target_pos, self.endEffectorAngle)
 
     def close_gripper(self):
         self.gripper_close = True
-        p.setJointMotorControl2(
-            self._robot_gripper_id, 1, p.VELOCITY_CONTROL, targetVelocity=5, force=100)
-        return
+        self._target_joint_pos = 0.05
+        self._left_finger.set_position(self._target_joint_pos)
+        self._right_finger.set_position(self._target_joint_pos)
 
-    def position_to_joints(self, arr):
-        pos, ori = arr[:3], arr[3]
-        target_joint_state = p.calculateInverseKinematics(self._robot_body_id,
-                                                          self._robot_end_effector_link_index,
-                                                          pos, ori,
-                                                          maxNumIterations=100, residualThreshold=1e-4)
-        return target_joint_state
+        self.run(0.2)
 
-    ## Misc.
-    def trigger_event(self, event, *event_args):
-        for fn, args, kwargs in self._callbacks[event]:
-            fn(*(event_args + args), **kwargs)
+    def open_gripper(self):
+        self.gripper_close = False
+        self._target_joint_pos = 0.0
+        self._left_finger.set_position(self._target_joint_pos)
+        self._right_finger.set_position(self._target_joint_pos)
 
-    def register_callback(self, event, fn, *args, **kwargs):
-        """Register a callback associated with the given event."""
-        self._callbacks[event].append((fn, args, kwargs))
+        self.run(0.2)
 
-    def register_events(self, evaluate, config):
-        # Register callbacks
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_sim)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_objects)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_model)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self.reset_positions)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._camera.reset)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._actuator.reset)
-        self.register_callback(RobotEnv.Events.START_OF_EPISODE, self._reward_fn.reset)
-        self.register_callback(RobotEnv.Events.CLOSE, super().close)
+    def _enforce_constraints(self, position):
+        """Enforce constraints on the next robot movement."""
+        if self._workspace:
+            position = np.clip(position,
+                               self._workspace['lower'],
+                               self._workspace['upper'])
+        return position
+    
+    def get_gripper_width(self):
+        """Query the current opening width of the gripper."""
+
+        left_finger_pos = 0.05 - self._left_finger.get_position()
+        right_finger_pos = 0.05 - self._right_finger.get_position()
+
+        return left_finger_pos + right_finger_pos
+
+    def object_detected(self, tol=0.005):
+        """Grasp detection by checking whether the fingers stalled while closing."""
+        return self._target_joint_pos == 0.05 and self.get_gripper_width() > tol
+    
+    def get_pose(self):
+        return self._model.get_pose()
+
+    def camera_pose(self):
+        return self._model.get_pose()
+
+    def gripper_pose(self):
+        return self._model.get_pose()
+
+    def get_pose_cam(self):
+        return self._model.get_pose_cam()
+
+    def is_discrete(self):
+        return self._actuator.is_discrete()
