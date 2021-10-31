@@ -27,7 +27,7 @@ class Reward:
 
     def __call__(self, obs, action, new_obs):
         reward = 0.
-        status = robot.RobotEnv.Status.RUNNING
+        status = self._robot.Status.RUNNING
 
         return reward, status
 
@@ -41,21 +41,53 @@ class Reward:
 
 class CustomReward(Reward):
     def __call__(self, obs, action, new_obs):
-        reward, status = 0., self._robot.RobotEnv.Status.RUNNING
+        reward, status = 0., self._robot.Status.RUNNING
+
+        position, _ = self._robot.get_pose()
+        robot_height = position[2]
+        if self._robot.object_detected():
+            if not self._lifting:
+                self._start_height = robot_height
+                self._lifting = True
+                status = self._robot.Status.GRASP
+
+            if robot_height - self._start_height > 0.15:
+                return self._terminal_reward, self._robot.Status.SUCCESS
+
+            # Intermediate rewards for grasping
+            reward += self._grasp_reward
+
+            # Intermediate rewards for lifting
+            delta_z = robot_height - self._old_robot_height
+            reward += 10 * delta_z
+        else:
+            self._lifting = False
+
+
+        # Time penalty
+        reward -= self._time_penalty
+        
+        # Poor grasp
+        if self._old_gripper_close ^ self._robot.gripper_close:
+            reward -= self._close_penalty
+
+        self._old_gripper_close = self._robot.gripper_close
+        self._old_robot_height = robot_height
+        return reward, status
 
         # prerequisites
-        self._target_id = self._robot.objects[0]
+        self._target_id = self._robot._scene.objects[0]
         object_pos, _ = p.getBasePositionAndOrientation(self._target_id)
         robot_pos, _ = self._robot.gripper_pose()
 
         # Reward on detection
-        det_mask = self._robot.object_detected()
+        _, _, det_mask = self._robot._camera.get_state()
         det_objects = np.unique(det_mask)
         det_target = self._target_id in det_objects
         reward += self._detect_reward * np.clip(len(det_objects), 0, 3)
         if det_target: 
             reward += self._detect_reward * 5 
-            status = self._robot.RobotEnv.Status.DETECT
+            status = self._robot.Status.DETECT
             #print(f"reward on detection: {reward}")
 
         # Reward on grasping
@@ -63,7 +95,7 @@ class CustomReward(Reward):
         if dist_object < 0.07:
             self._grasping = True
             reward += self._grasp_reward
-            status = self._robot.RobotEnv.Status.GRASP
+            status = self._robot.Status.GRASP
             #print(f"reward on grasping: {reward} by {dist_object}")
         else:
             self._grasping = False
@@ -72,15 +104,15 @@ class CustomReward(Reward):
         if self._grasping and robot_pos[2] > self._old_robot_height:
             self._lifting = True
             reward += self._lift_reward
-            status = self._robot.RobotEnv.Status.LIFT
+            status = self._robot.Status.LIFT
             #print(f"reward on lifting: {reward} by {robot_pos[2] - self._old_robot_height}")
         else:
             self._lifting = False
 
-        if self._lifting and robot_pos[2] > 0.1 and object_pos[2] > 0.1:
+        if self._lifting and robot_pos[2] > 0.2 and object_pos[2] > 0.2:
             #print(f"lifting up to {object_pos[2]}")
             #print(f"*** success, rewarding {reward} ***")
-            return self._terminal_reward, self._robot.RobotEnv.Status.SUCCESS
+            return self._terminal_reward, self._robot.Status.SUCCESS
 
         # Penalty on poor grasping
         if self._old_gripper_close == False and self._robot.gripper_close == True:
@@ -120,28 +152,6 @@ class GripperReward(Reward):
 
             if robot_height - self._start_height > 0.15:
                 return self._terminal_reward, self._robot.Status.SUCCESS
-
-                '''    
-                if self._table_clearing:
-                    # Object was lifted by the desired amount
-                    grabbed_obj = self._robot.find_highest()
-                    if grabbed_obj is not -1:
-                        self._robot.remove_model(grabbed_obj)
-                    
-                    # Multiple object grasping
-                    # grabbed_objs = self._robot.find_higher(self.lift_dist)
-                    # if grabbed_objs:
-                    #     self._robot.remove_models(grabbed_objs)
-
-                    self._robot.open_gripper()
-                    if self._robot.get_num_body() == 2: 
-                        return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
-                    return self._lift_success, robot.RobotEnv.Status.RUNNING
-                else:
-                    if not self._shaped:
-                        return 1., robot.RobotEnv.Status.SUCCESS
-                    return self._terminal_reward, robot.RobotEnv.Status.SUCCESS
-                '''
 
             # Intermediate rewards for grasping
             reward += self._grasp_reward

@@ -8,7 +8,7 @@ import gym
 from gym.utils import seeding
 from numpy.random import RandomState
 from agent.world.model import Model
-from agent.world import scene
+from agent.world import task
 from pybullet_utils import bullet_client
 #from numba import cuda
 
@@ -31,8 +31,6 @@ class World(gym.Env):
         config = config['simulation']
         config_scene = config['scene']
         self.scene_type = config_scene['scene_type']
-        self.object_num = config_scene['object_num']
-        self.object_pos = config_scene['object_pos']
 
         # Pybullet client
         visualize = config.get('visualize', True) 
@@ -49,11 +47,11 @@ class World(gym.Env):
 
         # Scene
         if self.scene_type == "OnFloor":
-            self._scene = scene.OnFloor(self, config, self._rng, test, validate)
+            self._scene = task.OnFloor(self, config, self._rng, test, validate)
         elif self.scene_type == "OnTable":
-            self._scene = scene.OnTable(self, config, self._rng, test, validate)
+            self._scene = task.OnTable(self, config, self._rng, test, validate)
         elif self.scene_type == "OnTote":
-            self._scene = scene.OnTote(self, config, self._rng, test, validate)
+            self._scene = task.OnTote(self, config, self._rng, test, validate)
 
         # Objects (including robot)
         self.models = []
@@ -61,7 +59,6 @@ class World(gym.Env):
 
         # callbacks
         self._callbacks = {World.Events.RESET: [], World.Events.STEP: []}
-
 
     ## Running simulation
     def run(self, duration):
@@ -112,82 +109,6 @@ class World(gym.Env):
     def remove_model(self, model_id):
         self.physics_client.removeBody(model_id)
         self.models[model_id] = False
-
-
-    ## Objects (task)
-    def reset_objects(self):
-        # - Define possible object shapes
-        object_shapes = self.shape_objects()
-        object_colors = self.color_objects()
-
-        # load objects
-        self.objects = []
-        
-        _object_body_id = p.loadURDF(object_shapes[-1], [2.0, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
-        self.objects.append(_object_body_id) 
-        for i in range(self.object_num):
-            _object_shape = random.choice(object_shapes[:-1])
-            _object_body_id = p.loadURDF(_object_shape, [2.0, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
-            self.objects.append(_object_body_id)
-            
-        # set objects configuration
-        for object_body_id in self.objects:
-            # poisition
-            random_position = self.object_pos
-            random_orientation = np.random.random_sample((3))*2*np.pi-np.pi
-            p.resetBasePositionAndOrientation(object_body_id, random_position, p.getQuaternionFromEuler(random_orientation))
-
-        # set objects colors
-        p.changeVisualShape(self.objects[0], -1, rgbaColor=np.concatenate((object_colors[-1], np.array([1.0]))))
-        for object_body_id in self.objects[1:]:
-            _object_colors = random.choice(object_colors[:-1])
-            _object_colors = np.concatenate((_object_colors, np.array([1.0])))
-            p.changeVisualShape(object_body_id, -1, rgbaColor=_object_colors)
-
-    def shape_objects(self):
-        """
-        returns a shape of objects
-        :return palette (np.array object): np array of rgb colors in range [0, 1]
-        """
-
-        shapes = [
-            "assets/objects/rod.urdf",
-            "assets/objects/custom.urdf",
-            "assets/objects/cuboid0.urdf",
-            "assets/objects/cuboid1.urdf",
-            "assets/objects/cylinder.urdf",
-            "assets/objects/triangle.urdf",
-
-            "assets/objects/cube.urdf",
-        ]
-
-        return shapes
-
-    def color_objects(self):
-        """
-        returns a beautiful color palette
-        :return palette (np.array object): np array of rgb colors in range [0, 1]
-        """
-
-        palette = np.array(
-            [
-                #[78, 121, 167],  # blue
-                #[89, 169, 79],  # green
-                [237, 201, 72],  # yellow
-                [156, 117, 95],  # brown
-                [242, 142, 43],  # orange
-                #[176, 122, 161],  # purple
-                [255, 157, 167],  # pink
-                #[118, 183, 178],  # cyan
-                #[186, 176, 172],  # gray
-                
-                [255, 87, 89],  # red
-                
-            ],
-            dtype=np.float
-        )
-
-        return palette / 255.
     
 
     ## Misc.    
