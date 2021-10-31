@@ -1,24 +1,28 @@
 # Simulation parameters
 simulation:
   real_time: False
-  visualize: False
+  visualize: True
   time_horizon: 130
   max_episode: 10_000_000
   mode: default
   
   # Experimental setup parameters
   scene:
-    scene_type: OnFloor # [OnTable, OnFloor, OnTote]
-    object_num: 5
-    object_pos: [0.7, 0.0, 0.1]
+    scene_type: OnTable # [OnTable, OnFloor, OnTote]
+    data_set: random_urdfs
+    object_num: 15
+    object_pos: [0.0, 0.0, 0.5]
 
 # Robot parameters
 robot:
-  mount_path: assets/body/mount.urdf
-  body_path: assets/body/ur5.urdf
-  gripper_path: assets/gripper1/robotiq_2f_85.urdf
-  # assets/gripper0/wsg50_one_motor_gripper_new.sdf
-  # assets/gripper1/robotiq_2f_85.urdf
+  model_path: assets/body/kuka_with_gripper.sdf  
+  max_translation: 0.03
+  max_yaw_rotation: 0.15
+  max_force: 100
+  discrete: False
+  step_size: 0.01 #For discrete action space
+  yaw_step: 0.1
+  num_actions_pad: 2
 
 # Sensor parameters
 sensor:
@@ -59,12 +63,12 @@ sensor:
 reward:
   #custom: True
   #shaped: True
-  terminal_reward: 10_000. 
-  lift_reward: 300. # lift target object
+  terminal_reward: 50_000. 
+  lift_reward: 10_000. # lift target object
   grasp_reward: 100.
   detect_reward: 10. # detected from segmentation mask
-  close_penalty: 10.
-  out_penalty: 10.
+  close_penalty: 20.
+  out_penalty: 20.
   time_penalty: 20.
 
 
@@ -75,7 +79,7 @@ policy:
   max_yaw_rotation: 0.15
   max_force: 100
   discount_factor: 0.99
-  warm_start: 50_000
+  warm_start: 50
   normalize: False  #normalize the input and rewards
 
   DDPG:

@@ -1,7 +1,7 @@
 # Simulation parameters
 simulation:
   real_time: False
-  visualize: False
+  visualize: True
   mode: default
   time_horizon: 300
   max_episode: 10_000_000
@@ -15,7 +15,7 @@ simulation:
     
 # Robot parameters
 robot:
-  model_path: assets/gripper0/wsg50_one_motor_gripper_new.sdf
+  model_path: assets/gripper/wsg50_one_motor_gripper_new.sdf
   max_translation: 0.03
   max_yaw_rotation: 0.15
   max_force: 100
@@ -90,6 +90,7 @@ normalize: True
 
 policy:
   algo_type: DDPG
+  warm_start: 20
 
   DDPG:
     batch_size: 32
