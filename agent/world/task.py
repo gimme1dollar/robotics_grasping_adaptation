@@ -121,7 +121,7 @@ class OnTable(BaseTask):
         self._world.add_model(table_urdf, [0., 0., -.82], [0., 0., 0., 1.])
         
         # Sample random objects
-        self._num_objects = self._rng.randint(self._num_objects-2, self._num_objects+2)
+        num_objects = self._rng.randint(self._num_objects-2, self._num_objects+2)
         object_shapes = self.shape_objects()
         object_colors = self.color_objects()
 
@@ -129,7 +129,7 @@ class OnTable(BaseTask):
         self.objects = []
         _object_body_id = p.loadURDF(object_shapes[-1], [2.0, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
         self.objects.append(_object_body_id) 
-        for i in range(self._num_objects):
+        for i in range(num_objects):
             _object_shape = random.choice(object_shapes[:-1])
             _object_body_id = p.loadURDF(_object_shape, [2.0, 0.1, 0.1], p.getQuaternionFromEuler([0, 0, 0]))
             self.objects.append(_object_body_id)
