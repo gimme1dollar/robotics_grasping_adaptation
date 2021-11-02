@@ -28,15 +28,16 @@ class World(gym.Env):
         """
         # Config
         self._rng = self.seed(evaluate=evaluate)
-        config = config['simulation']
+        #config = config['simulation']
         config_scene = config['scene']
         self.scene_type = config_scene['scene_type']
 
         # Pybullet client
-        visualize = config.get('visualize', True) 
-        self._real_time = config.get('real_time', True)
-        self.physics_client = bullet_client.BulletClient(
-            p.GUI if visualize else p.DIRECT)
+        config_sim = config['simulation']
+        visualize = config_sim.get('visualize', True) 
+        self._real_time = config_sim.get('real_time', True)
+        print(visualize)
+        self.physics_client = bullet_client.BulletClient(p.GUI if visualize else p.DIRECT)
 
         # Time
         self.epoch = 0
@@ -67,7 +68,7 @@ class World(gym.Env):
 
     def step_sim(self, num_steps):
         """Advance the simulation by one step."""
-        for i in range(int(num_steps)):
+        for _ in range(int(num_steps)):
             p.stepSimulation()
             
         # self._trigger_event(World.Events.STEP)

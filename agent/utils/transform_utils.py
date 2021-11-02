@@ -177,8 +177,8 @@ package with conversions between different formats.
 
 import warnings
 import math
-import numpy
 import logging
+import numpy
 import numpy as np
 from agent.utils import io_utils
 

@@ -166,9 +166,10 @@ class Kuka:
         return self._discrete
 
 class Gripper:
-    def __init__(self, robot, config):
+    def __init__(self, robot, config, simplified = False):
         self.robot = robot
         self._include_robot_height = config.get('include_robot_height', False)
+        self._simplified = simplified
 
         # Define action and state spaces
         self._max_translation = config['robot']['max_translation']
@@ -274,4 +275,5 @@ class Gripper:
 
     def is_discrete(self):
         return self._discrete
+
 

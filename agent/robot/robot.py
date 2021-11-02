@@ -13,10 +13,11 @@ from gym import spaces
 
 from agent.utils import io_utils
 from agent.utils import transform_utils
+from agent.utils import curriculum_utils
 
 from agent.world.model import Model_kuka, Model_gripper
 from agent.robot import sensor, encoder, actuator
-from agent.robot.rewards import CustomReward, GripperReward
+from agent.robot.reward import Reward, SimplifiedReward, GripperCustomReward, ArmCustomReward
 from agent.world.world import World 
 
 
@@ -28,8 +29,9 @@ def _reset(robot, actuator, depth_sensor):
         robot.reset_model() #robot model
         actuator.reset()
         _, _, mask = depth_sensor.get_state()
-        ok = len(np.unique(mask)) > 2  # plane and gripper are always visible
-
+        
+        #ok = len(np.unique(mask)) > 2  # plane and gripper are always visible
+        ok = True
 
 class GripperEnv(World):
     class Events(Enum):
@@ -39,44 +41,50 @@ class GripperEnv(World):
         CHECKPOINT = 3
 
     class Status(Enum):
-        FAIL = -1
         RUNNING = 0
-        IN_BOX = 1
-        GRASP = 2
-        SUCCESS = 3
-
+        SUCCESS = 1
+        FAIL = 2
+        TIME_LIMIT = 3
+        
     def __init__(self, config, evaluate=False, test=False, validate=False):
         if not isinstance(config, dict):
             config = io_utils.load_yaml(config)
         
         super().__init__(config, evaluate=evaluate, test=test, validate=validate)
         self._step_time = collections.deque(maxlen=10000)
-        self.time_horizon = config['simulation']['time_horizon']
+        self.time_horizon = config['time_horizon']
         self._workspace = {'lower': np.array([-1., -1., -1]),
                            'upper': np.array([1., 1., 1.])}
         self.model_path = config['robot']['model_path']
-
         self.depth_obs = config.get('depth_observation', False)
-
-        self._initial_height = 1.0
+        self.full_obs = config.get('full_observation', False)
+        self._initial_height = 0.3
         self._init_ori = transform_utils.quaternion_from_euler(np.pi, 0., 0.)
-
-        self._model = None
-        self._joints = None
-        self._left_finger, self._right_finger = None, None
         self.main_joints = [0, 1, 2, 3] #FIXME make it better
         self._left_finger_id = 7
         self._right_finger_id = 9
         self._fingers = [self._left_finger_id, self._right_finger_id]
 
+        self._model = None
+        self._joints = None
+        self._left_finger, self._right_finger = None, None
         self._actuator = actuator.Gripper(self, config)
 
         self._camera = sensor.RGBDSensor(config['sensor'], self)
 
-        self._reward_fn = GripperReward(config['reward'], self)
+        # Assign the reward fn
+        self._reward_fn = GripperCustomReward(config['reward'], self)
 
         # Assign the sensors
-        self._sensors = [self._camera]
+        if self.depth_obs or self.full_obs:
+            self._sensors = [self._camera]
+        else:
+            self._encoder = sensor.EncodedDepthImgSensor(
+                                    config, self._camera, self)
+            self._sensors = [self._encoder]
+
+        self.curriculum = curriculum_utils.WorkspaceCurriculum(config['curriculum'], self, evaluate)
+        self.history = self.curriculum._history
 
         self._callbacks = {GripperEnv.Events.START_OF_EPISODE: [],
                         GripperEnv.Events.END_OF_EPISODE: [],
@@ -152,36 +160,49 @@ class GripperEnv(World):
         new_obs = self._observe()
 
         reward, self.status = self._reward_fn(self.obs, action, new_obs)
-        #self.episode_rewards[self.episode_step] = reward
+        self.episode_rewards[self.episode_step] = reward
 
-
-        if self.status == GripperEnv.Status.SUCCESS:
+        if self.status != GripperEnv.Status.RUNNING:
             done = True
         elif self.episode_step == self.time_horizon - 1:
-            done = True
+            done, self.status = True, GripperEnv.Status.TIME_LIMIT
         else:
             done = False
-        
+
         if done:
             self._trigger_event(GripperEnv.Events.END_OF_EPISODE, self)
-        
-        
+
         self.episode_step += 1
         self.obs = new_obs
-        self.physics_client.stepSimulation()
-        return self.obs, reward, done, self.status
+        if len(self.curriculum._history) != 0:
+            self.sr_mean = np.mean(self.curriculum._history)
+        super().step_sim(1)
         
+        return self.obs, reward, done, {"is_success":self.status==GripperEnv.Status.SUCCESS,
+                                         "episode_step": self.episode_step, 
+                                         "episode_rewards": self.episode_rewards, 
+                                         "status": self.status}
+
     def _observe(self):
-        rgb, depth, _ = self._camera.get_state()
-        sensor_pad = np.zeros(self._camera.state_space.shape[:2])
-        sensor_pad[0][0] = self._actuator.get_state()
-        #obs_stacked = np.dstack((rgb, depth, sensor_pad))
-        obs_stacked = np.dstack((rgb, depth))
-        return obs_stacked
+        if not self.depth_obs and not self.full_obs:
+            obs = np.array([])
+            for sensor in self._sensors:
+                obs = np.append(obs, sensor.get_state())
+            return obs
+        else:
+            rgb, depth, _ = self._camera.get_state()
+            sensor_pad = np.zeros(self._camera.state_space.shape[:2])
+
+            sensor_pad[0][0] = self._actuator.get_state()
+            if self.full_obs:
+                obs_stacked = np.dstack((rgb, depth, sensor_pad))
+            else:
+                obs_stacked = np.dstack((depth, sensor_pad))
+            return obs_stacked
 
     def setup_spaces(self):
         self.action_space = self._actuator.setup_action_space()
-        if not self.depth_obs:
+        if not self.depth_obs and not self.full_obs:
             low, high = np.array([]), np.array([])
             for sensor in self._sensors:
                 low = np.append(low, sensor.state_space.low)
@@ -189,7 +210,12 @@ class GripperEnv(World):
             self.observation_space = gym.spaces.Box(low, high, dtype=np.float32)
         else:
             shape = self._camera.state_space.shape
-            self.observation_space = gym.spaces.Box(low=0, high=255,
+            
+            if self.full_obs: # RGB + Depth + Actuator
+                self.observation_space = gym.spaces.Box(low=0, high=255,
+                                                    shape=(shape[0], shape[1], 5))
+            else: # Depth + Actuator obs
+                self.observation_space = gym.spaces.Box(low=0, high=255,
                                                     shape=(shape[0], shape[1], 2))
 
     def absolute_pose(self, target_pos, target_orn):
@@ -265,6 +291,12 @@ class GripperEnv(World):
     def gripper_pose(self):
         return self._model.get_pose()
 
+    def get_pose_cam(self):
+        return self._model.get_pose()
+
+    def is_simplified(self):
+        return False
+        
     def is_discrete(self):
         return self._actuator.is_discrete()
 
@@ -277,12 +309,10 @@ class ArmEnv(World):
         CHECKPOINT = 3
 
     class Status(Enum):
-        FAIL = -1
         RUNNING = 0
-        DETECT = 1
-        GRASP = 2
-        LIFT = 3
-        SUCCESS = 4
+        SUCCESS = 1
+        FAIL = 2
+        TIME_LIMIT = 3
 
     def __init__(self, config, evaluate=False, test=False, validate=False):
         if not isinstance(config, dict):
@@ -334,16 +364,21 @@ class ArmEnv(World):
 
         self._camera = sensor.RGBDSensor(config['sensor'], self)
 
-        self._reward_fn = CustomReward(config['reward'], self)
+        # Assign the reward fn
+        self._reward_fn = ArmCustomReward(config['reward'], self)
 
         # Assign the sensors
         self._sensors = [self._camera]
+
+        self.curriculum = curriculum_utils.WorkspaceCurriculum(config['curriculum'], self, evaluate)
+        self.history = self.curriculum._history
         self._callbacks = {ArmEnv.Events.START_OF_EPISODE: [],
                         ArmEnv.Events.END_OF_EPISODE: [],
                         ArmEnv.Events.CLOSE: [],
                         ArmEnv.Events.CHECKPOINT: []}
         self.register_events(evaluate, config)
         self.sr_mean = 0.
+        self.episode_step = 0
         self.setup_spaces()
 
     def register_events(self, evaluate, config):
@@ -411,36 +446,51 @@ class ArmEnv(World):
             A tuple (obs, reward, done, info), where done is a boolean flag
             indicating whether the current episode finished.
         """
-        self.episode_step += 1
-        done = False
-
         if self._model is None:
             self.reset()
 
-        if self.episode_step < 1: 
-            return self.obs, 0, done, self.status
-            
         self._actuator.step(action)
         new_obs = self._observe()
 
         reward, self.status = self._reward_fn(self.obs, action, new_obs)
         self.episode_rewards[self.episode_step] = reward
 
-        if self.status == ArmEnv.Status.SUCCESS or self.episode_step == self.time_horizon - 1:
+        if self.status != ArmEnv.Status.RUNNING:
             done = True
+        elif self.episode_step == self.time_horizon - 1:
+            done, self.status = True, ArmEnv.Status.TIME_LIMIT
+        else:
+            done = False
+
+        if done:
             self._trigger_event(ArmEnv.Events.END_OF_EPISODE, self)
-            
+        self.episode_step += 1
         self.obs = new_obs
-        self.physics_client.stepSimulation()
-        return self.obs, reward, done, self.status
+        if len(self.curriculum._history) != 0:
+            self.sr_mean = np.mean(self.curriculum._history)
+        super().step_sim(1)
+
+        return self.obs, reward, done, {"is_success":self.status==ArmEnv.Status.SUCCESS,
+                                        "episode_step": self.episode_step,
+                                        "episode_rewards": self.episode_rewards,
+                                        "status": self.status}
 
     def _observe(self):
-        rgb, depth, _ = self._camera.get_state()
-        sensor_pad = np.zeros(self._camera.state_space.shape[:2])
-        sensor_pad[0][0] = self._actuator.get_state()
-        #obs_stacked = np.dstack((rgb, depth, sensor_pad))
-        obs_stacked = np.dstack((rgb, depth))
-        return obs_stacked
+        if not self.depth_obs and not self.full_obs:
+            obs = np.array([])
+            for sensor in self._sensors:
+                obs = np.append(obs, sensor.get_state())
+            return obs
+        else:
+            rgb, depth, _ = self._camera.get_state()
+            sensor_pad = np.zeros(self._camera.state_space.shape[:2])
+            sensor_pad[0][0] = self._actuator.get_state()
+
+            if self.full_obs:
+                obs_stacked = np.dstack((rgb, depth, sensor_pad))
+            else:
+                obs_stacked = np.dstack((depth, sensor_pad))
+            return obs_stacked
 
     def setup_spaces(self):
         self.action_space = self._actuator.setup_action_space()
@@ -584,6 +634,9 @@ class ArmEnv(World):
 
     def get_pose_cam(self):
         return self._model.get_pose_cam()
+
+    def is_simplified(self):
+        return False
 
     def is_discrete(self):
         return self._actuator.is_discrete()

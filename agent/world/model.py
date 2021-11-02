@@ -37,6 +37,7 @@ class Joint(object):
         self._physics_client.setJointMotorControl2(
             self.model_id, self.jid, controlMode=p.VELOCITY_CONTROL, force=0.)
 
+
 class Model(object):
     def __init__(self, pyshics_client):
         return
@@ -53,7 +54,7 @@ class Model_gripper(object):
         else:
             model_id = self._physics_client.loadURDF(
                 path, start_pos, start_orn,
-                globalScaling=scaling, useFixedBase=static)        
+                globalScaling=scaling, useFixedBase=static)      
         self.model_id = model_id
         # self._get_limits(self.model_id)
         joints, links = {}, {}

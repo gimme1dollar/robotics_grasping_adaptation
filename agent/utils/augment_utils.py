@@ -1,70 +1,45 @@
-import numpy as np
+'''
+    Code modified from https://hagler.tistory.com/189
+'''
+
 import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import glob
+import random
 
-import torch
-import torchvision
-from torchvision import transforms
-from torch.autograd import Variable
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+def rotation(img, angle):
+    angle = int(random.uniform(-angle, angle))
+    h, w = img.shape[:2]
+    M = cv2.getRotationMatrix2D((int(w/2), int(h/2)), angle, 1)
+    img = cv2.warpAffine(img, M, (w, h))
+    return img
+
+def horizontal_flip(img, flag):
+    if flag:
+        return cv2.flip(img, 1)
+    else:
+        return img
+
+def vertical_flip(img, flag):
+    if flag:
+        return cv2.flip(img, 0)
+    else:
+        return img
 
 
-def image_crop(image, size):
-    org_h, org_w = np.shape(image)[0], np.shape(image)[1]
-    aug = transforms.Compose(
-           [
-            transforms.RandomCrop((size, size)),
-            transforms.Resize((org_h, org_w))
-           ])
-    return aug(image)
+if __name__ == "__main__":
+    images = sorted(glob.glob('example.png'))
 
-def image_random_affine(image, degree):
-    aug = transforms.RandomAffine(degree)
-    return aug(image)
-
-def image_horizontal_flip(image):
-    aug = transforms.RandomHorizontalFlip(p=1)
-    return aug(image)
-
-def image_perspective(image):
-    aug = transforms.RandomPerspective()
-    return aug(image)
-
-def image_gray(image):
-    aug = transforms.RandomGrayscale(p=1)
-    return aug(image)
-
-def image_jitter(image):
-    aug = transforms.ColorJitter(brightness=(0.2, 3))
-    return aug(image)
-
-def image_contrast(image):
-    aug = transforms.ColorJitter(contrast=(0.2, 3))
-    return aug(image)
-    
-def image_hue(image):
-    org_h, org_w = np.shape(image)[0], np.shape(image)[1]
-    aug = transforms.Compose(
-           [
-            transforms.ToTensor(),
-            transforms.ColorJitter(hue=(-0.1, 0.1))
-           ])
-    res = aug(image)
-    res = res.permute(1, 2, 0).cpu().detach().numpy()
-    return res
-
-def image_noise(image):    
-    org_h, org_w = np.shape(image)[0], np.shape(image)[1]
-
-    aug = transforms.Compose(
-           [
-            transforms.ToTensor()
-           ])
-    res = aug(image)
-
-    noise = Variable(torch.zeros(org_h, org_w).cuda())
-    noise.data.normal_(0, std=0.3)
-
-    res = res.to(device) + noise.to(device)
-    res = res.permute(1, 2, 0).cpu().detach().numpy()
-    return res[:,:,0]
-        
+    for fname in images:
+        img = cv2.imread(fname)
+        img = cv2.resize(img, dsize=(88, 88),interpolation=cv2.INTER_LINEAR)
+        img = rotation(img, 180)
+        #if random.uniform(0,1) > 0.5:
+        #    img = vertical_flip(img, 1)
+        file_name = dir + str(i) + '.png'
+        #file_name = 'aug_image/' + str(i) + '.png'
+        cv2.imwrite(file_name, img)
+        i = i + 1
+        if i > 9500:
+            break

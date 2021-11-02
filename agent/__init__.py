@@ -6,6 +6,6 @@ register(
 )
 
 register(
-    id='gripper-env-v0',
+    id='gripper-env-v1',
     entry_point='agent.robot.robot:GripperEnv',
 )
