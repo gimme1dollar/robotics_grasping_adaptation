@@ -43,20 +43,25 @@ pytest test
 
 ## Demo 
 ```
-python main.py --exp-algo <algo_name>
+python main.py run --config config/<conf_name> --model checkpoints/final/<path_name>
 ```
 
+- simulation
 <p align="center">
 <img src="demo/gripper_demo.gif" width="350px">
 </p>  
 <p align="center">
 <img src="demo/arm_demo.gif" width="350px">
 </p>  
+
+- baseline training
 <p align="center">
 <img src="demo/gripper_learning_curve.PNG" width="500px" height="250px">
 </p>  
+
+- domain shift
 <p align="center">
-<img src="demo/domain_shift.PNG" width="300px" height="100px">
+<img src="demo/domain_shift.PNG" width="320px" height="100px">
 </p>  
 <p align="center">
 <img src="demo/domain_shift.gif" width="500px" height="300px">
