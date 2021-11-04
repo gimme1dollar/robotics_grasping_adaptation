@@ -14,15 +14,17 @@ robot:
 # Experimental setup parameters
 scene:
   scene_type: "OnTable" # OnTable scene is easier for the table clearing task
-  # scene_type: "OnFloor"
+  # scene_type: OnFloor, OnTable, OnTray
   data_set: random_urdfs
+  #data_set: random_urdfs, wooden_blocks, custom_urdfs
 
 # Simulation parameters
-time_horizon: 30
 simulation:
   time_horizon: 30
   real_time: False
   visualize: False
+  gravity: False
+  unit_time: True
 
 sensor:
   camera_info: config/camera_info.yaml
@@ -77,23 +79,8 @@ discount_factor: 0.99
 # normalize the input and rewards
 normalize: True
 
-SAC:
-  max_iters: 400
-  batch_size: 64
-  layers: [64, 64]
-  buffer_size: 1000000
-  step_size: 0.0003
-  tensorboard_logs: !!null
-  total_timesteps: 2000000
-  save_dir: sac2m_depth_obs
-
-PPO:
-  learning_rate: 0.0003
-  layers: [64, 64]
-  save_dir: ppo_5m
-  tensorboard_logs: !!null
-  total_timesteps: 5000000
-  n_steps: 2000
+# Policy algorithm
+algorithm: sac
 
 DQN:
   learning_rate: 0.001
@@ -103,18 +90,25 @@ DQN:
   total_timesteps: 4000000
   prioritized_replay: True
 
-BDQ:
-  learning_rate: 0.0001
-  prioritized_replay: False #True 
+DDPG:
+  save_dir: DDPG
+  tensorboard_logs: DDPG
+  total_timesteps: 2000000
+
+PPO:
+  learning_rate: 0.0003
+  layers: [64, 64]
+  save_dir: ppo_5m
+  tensorboard_logs: !!null
+  total_timesteps: 5000000
+  n_steps: 2000
+
+SAC:
+  max_iters: 400
   batch_size: 64
-  layers: [[64, 64], [32], [32]]
+  layers: [64, 64]
   buffer_size: 1000000
-  epsilon_greedy: true
-  exploration_fraction: 0.3 # 0.1
-  exploration_final_eps: 0.1 #0.02
-  num_actions_pad: 33
-  learning_starts: 1000
-  target_network_update_freq: 1000
-  total_timesteps: 4000000
-  tensorboard_logs: !!null #tensorboard_logs/BDQ1mSimplified
-  save_dir: BDQ1mSimplified
+  step_size: 0.0003
+  tensorboard_logs: !!null
+  total_timesteps: 2000000
+  save_dir: sac2m_depth_obs

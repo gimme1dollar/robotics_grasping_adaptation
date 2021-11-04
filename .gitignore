@@ -1,6 +1,7 @@
 __pycache__/
 .ipynb_checkpoints/
 
-checkpoints/
+checkpoints/gripper/
+checkpoints/robot/
 wandb/
-source/
+tensorboard/

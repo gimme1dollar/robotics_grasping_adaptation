@@ -52,7 +52,7 @@ class GripperEnv(World):
         
         super().__init__(config, evaluate=evaluate, test=test, validate=validate)
         self._step_time = collections.deque(maxlen=10000)
-        self.time_horizon = config['time_horizon']
+        self.time_horizon = config['simulation']['time_horizon']
         self._workspace = {'lower': np.array([-1., -1., -1]),
                            'upper': np.array([1., 1., 1.])}
         self.model_path = config['robot']['model_path']

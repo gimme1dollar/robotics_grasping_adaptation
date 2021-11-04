@@ -7,7 +7,7 @@ import numpy as np
 from agent.robot.robot import ArmEnv
 
 
-def run_agent(task, agent, stochastic=False, n_episodes=100, debug=False):
+def run_agent(task, agent, stochastic=False, n_episodes=20, debug=False):
     rewards = np.zeros(n_episodes)
     steps = np.zeros(n_episodes)
     success_rates = np.zeros(n_episodes)
@@ -73,4 +73,4 @@ def _run_episode(obs, task, agent, stochastic):
         # logging.debug('Action: %s', action)
         # logging.debug('Reward: %s\n', reward)
     
-    return task.buf_infos[0]["episode_step"], task.buf_infos[0]["episode_rewards"], task.buf_infos[0]["status"] == ArmEnv.Status.SUCCESS
+    return task.buf_infos[0]["episode_step"], task.buf_infos[0]["episode_rewards"], task.buf_infos[0]["status"].value == 1

@@ -83,10 +83,7 @@ def train(args):
     test_env.close()
 
 def run(args):
-    top_folder_idx = args.model.rfind('/')
-    top_folder_str = args.model[0:top_folder_idx]
-    config_file = top_folder_str + '/config.yaml'
-    config = io_utils.load_yaml(config_file)
+    config = io_utils.load_yaml(args.config)
     normalize = config.get("normalize", False)
 
     env_name_idx = args.config.rfind('/')
@@ -99,15 +96,12 @@ def run(args):
     print(env_name_v)
 
     if args.visualize:
-        config['simulation']['real_time'] = False
+        #config['simulation']['real_time'] = False
         config['simulation']['visualize'] = True
 
-    task = DummyVecEnv([lambda: gym.make(env_name_v, config=config, evaluate=True, test=args.test)])
-
-    if normalize:
-        task = VecNormalize(task, training=False, norm_obs=True, norm_reward=True,
-                            clip_obs=10.)
-        task = VecNormalize.load(os.path.join(top_folder_str, 'vecnormalize.pkl'), task)
+    task = DummyVecEnv([lambda: gym.make(env_name_v, config=config, evaluate=True, test=True)])
+    #task = VecNormalize(task, norm_obs=False, norm_reward=False, clip_obs=10.)
+    task = VecNormalize.load(os.path.join('checkpoints/gripper', 'vecnormalize.pkl'), task)
         
     # task = gym.make('gripper-env-v0', config=config, evaluate=True, test=args.test)
     model_lower = args.model.lower() 

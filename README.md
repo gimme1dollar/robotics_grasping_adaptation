@@ -45,17 +45,18 @@ pytest test
 ```
 python main.py --exp-algo <algo_name>
 ```
-- robot arm
-<p align="center">
-<img src="demo/arm_demo.gif" width="350px">
-</p>  
 
-- robot gripper   
 <p align="center">
 <img src="demo/gripper_demo.gif" width="350px">
 </p>  
 <p align="center">
+<img src="demo/arm_demo.gif" width="350px">
+</p>  
+<p align="center">
 <img src="demo/gripper_learning_curve.PNG" width="500px" height="250px">
+</p>  
+<p align="center">
+<img src="demo/domain_shift.PNG" width="300px" height="100px">
 </p>  
 <p align="center">
 <img src="demo/domain_shift.gif" width="500px" height="300px">

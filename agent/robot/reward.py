@@ -165,9 +165,8 @@ class GripperCustomReward(Reward):
                     #     self._robot.remove_models(grabbed_objs)
 
                     self._robot.open_gripper()
-                    if self._robot.get_num_body() == 2: 
-                        return self._terminal_reward, robot.GripperEnv.Status.SUCCESS
-                    return self._lift_success, robot.GripperEnv.Status.RUNNING
+                    return self._terminal_reward, robot.GripperEnv.Status.SUCCESS
+                    #return self._lift_success, robot.GripperEnv.Status.RUNNING
                 else:
                     if not self._shaped:
                         return 1., robot.GripperEnv.Status.SUCCESS

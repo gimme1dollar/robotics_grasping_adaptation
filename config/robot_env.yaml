@@ -10,19 +10,21 @@ robot:
   num_actions_pad: 2
   # include_robot_height: True
 
+
 # Experimental setup parameters
 scene:
-  scene_type: "OnTable"
-  # scene_type: "OnFloor"
+  scene_type: "OnTable" # OnTable scene is easier for the table clearing task
+  # scene_type: OnFloor, OnTable, OnTray
   data_set: random_urdfs
-  object_num: 7
+  #data_set: random_urdfs, wooden_blocks, custom_urdfs
 
 # Simulation parameters
-time_horizon: 100
 simulation:
+  time_horizon: 30
   real_time: False
-  visualize: True
-  time_horizon: 100
+  visualize: False
+  gravity: False
+  unit_time: False
 
 sensor:
   camera_info: config/camera_info.yaml
@@ -73,8 +75,10 @@ full_observation: True
 # Markov decision process parameters
 discount_factor: 0.99
 # normalize the input and rewards
-normalize: False
+normalize: True
 
+# Policy algorithm
+algorithm: sac
 
 DQN:
   learning_rate: 0.001

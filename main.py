@@ -41,6 +41,7 @@ if __name__ == "__main__":
     # Sub-command for running a trained policy
     run_parser = subparsers.add_parser('run')
     run_parser.add_argument('--model', type=str)
+    run_parser.add_argument('--config', type=str, required=True)
     run_parser.add_argument('-v', '--visualize', action='store_true')
     run_parser.add_argument('-t', '--test', action='store_true')
     run_parser.add_argument('-s', '--stochastic', action='store_true')

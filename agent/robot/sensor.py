@@ -214,6 +214,9 @@ class EncodedDepthImgSensor:
         #FIXME only when table scene is selectesd
         if self.scene_type == "OnTable":
             img[mask == 1] = 0. #filter the table
+            #img[mask == 2] = 0. #filter the tray
+        if self.scene_type == "OnTray":
+            img[mask == 1] = 0. #filter the table
             img[mask == 2] = 0. #filter the tray
         
         # Encode

@@ -43,7 +43,9 @@ class World(gym.Env):
         self.epoch = 0
         self.sim_time = 0.
         self._time_step = 1. / 240.
-        self._time_horizon = config['time_horizon']
+        self._time_horizon = config_sim['time_horizon']
+        self._shifted_gravity = config_sim['gravity']
+        self._shifted_time = config_sim['unit_time']
         self._solver_iterations = 150 
 
         # Scene
@@ -51,8 +53,8 @@ class World(gym.Env):
             self._scene = task.OnFloor(self, config, self._rng, test, validate)
         elif self.scene_type == "OnTable":
             self._scene = task.OnTable(self, config, self._rng, test, validate)
-        elif self.scene_type == "OnTote":
-            self._scene = task.OnTote(self, config, self._rng, test, validate)
+        elif self.scene_type == "OnTray":
+            self._scene = task.OnTray(self, config, self._rng, test, validate)
 
         # Objects (including robot)
         self.models = []
@@ -68,6 +70,7 @@ class World(gym.Env):
 
     def step_sim(self, num_steps):
         """Advance the simulation by one step."""
+        if self._shifted_time: num_steps *= 3
         for _ in range(int(num_steps)):
             p.stepSimulation()
             
@@ -85,7 +88,9 @@ class World(gym.Env):
             enableConeFriction=1)
         
         # set gravity
-        self.physics_client.setGravity(0., 0., -9.81)   
+        gravity = -9.81
+        if self._shifted_gravity: gravity *= 1/10
+        self.physics_client.setGravity(0., 0., gravity)   
 
         # set time
         self.epoch += 1
@@ -102,6 +107,7 @@ class World(gym.Env):
 
     ## Models
     def add_model(self, path, start_pos, start_orn, scaling=1.):
+        print(path)
         model = Model(self.physics_client)
         model.load_model(path, start_pos, start_orn, scaling)
         self.models.append(model)
