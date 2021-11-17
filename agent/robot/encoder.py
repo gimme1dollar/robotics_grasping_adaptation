@@ -85,9 +85,10 @@ class SimpleAutoEncoder(Encoder):
         network = config['network']
         encoding_dim = config['encoding_dim']
         alpha = config.get('alpha', 0.1)
+        channels = 3 + 1
 
         # Input
-        inputs = Input(shape=(64, 64, 1))
+        inputs = Input(shape=(64, 64, channels))
 
         # Encoder
         h = inputs
@@ -121,7 +122,7 @@ class SimpleAutoEncoder(Encoder):
             h = LeakyReLU(alpha)(h)
 
         h = UpSampling2D(network[0]['strides'])(h)
-        outputs = Conv2D(1, network[0]['kernel_size'], padding='same')(h)
+        outputs = Conv2D(channels, network[0]['kernel_size'], padding='same')(h)
 
         self._decoder = Model(latent_inputs, outputs, name='decoder')
 

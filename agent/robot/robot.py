@@ -47,6 +47,7 @@ class GripperEnv(World):
         TIME_LIMIT = 3
         
     def __init__(self, config, evaluate=False, test=False, validate=False):
+        print("========== gripper-env-01 ==========")
         if not isinstance(config, dict):
             config = io_utils.load_yaml(config)
         
@@ -293,6 +294,15 @@ class GripperEnv(World):
 
     def get_pose_cam(self):
         return self._model.get_pose()
+
+    def get_camera(self):
+        return self._camera
+
+    def get_actuator(self):
+        return self._actuator
+
+    def get_state(self):
+        return self._observe()
 
     def is_simplified(self):
         return False

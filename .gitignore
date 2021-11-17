@@ -1,7 +1,11 @@
 __pycache__/
 .ipynb_checkpoints/
 
+*.pkl
+*.csv
+
 checkpoints/gripper/
 checkpoints/robot/
+checkpoints/encoder/
 wandb/
 tensorboard/

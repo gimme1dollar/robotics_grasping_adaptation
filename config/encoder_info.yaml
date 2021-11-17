@@ -8,4 +8,5 @@ encoding_dim: 100
 learning_rate: 0.0002
 batch_size: 128
 epochs: 120
-data_path: ~/ActionBranchingDQN/new_gripper_onfloor_imgs.pkl
+data_path: ./checkpoints/encoder/data.pkl
+encoder_dir: checkpoints/encoder

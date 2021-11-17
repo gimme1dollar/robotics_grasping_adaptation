@@ -6,26 +6,33 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
 
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))))
 from agent.utils import io_utils
-from agent.robot import encoder
-
+from agent.robot import robot, actuator, sensor, encoder
 
 def _load_data_set(data_path, test):
     with open(os.path.expanduser(data_path), 'rb') as f:
         dataset = pickle.load(f)
     return dataset['test'] if test else dataset['train']
 
+def _preprocess_img(data_set):
+    result = []
 
-def _preprocess_depth(data_set):
+    rgb_imgs = data_set['rgb']
     depth_imgs = data_set['depth']
     masks = data_set['masks']
-    for i in range(depth_imgs.shape[0]):
-        img, mask = depth_imgs[i].squeeze(), masks[i].squeeze()
-        img[mask == 0] = 0.  # Remove the flat surface
-        img[mask == np.max(mask)] = 0.  # Remove the gripper
-        depth_imgs[i, :, :, 0] = img
-    return depth_imgs
 
+    for i in range(depth_imgs.shape[0]):
+        masks[i][(masks[i] <= 1)] = 0.
+        masks[i][(masks[i] > 1)] = 1.
+
+        depth_imgs[i][(masks[i] == 0)] = 0.
+        
+        tmp = np.dstack((rgb_imgs[i]/255., depth_imgs[i]))
+        result.append(tmp)
+    result = np.asarray(result)
+    return result
 
 def train(args):
     # Load the encoder configuration
@@ -41,11 +48,12 @@ def train(args):
 
     # Load and process the training data
     train_set = _load_data_set(config['data_path'], test=False)
-    train_imgs = _preprocess_depth(train_set)
+    train_imgs = _preprocess_img(train_set)
 
     # Train the model
     batch_size = config['batch_size']
     epochs = config['epochs']
+
     model.train(train_imgs, train_imgs, batch_size, epochs, model_dir)
 
 
@@ -57,7 +65,7 @@ def test(args):
 
     # Load the test set
     test_set = _load_data_set(config['data_path'], test=True)
-    test_imgs = _preprocess_depth(test_set)
+    test_imgs = _preprocess_img(test_set)
 
     # Compute the test loss
     loss = model.test(test_imgs, test_imgs)
@@ -65,14 +73,8 @@ def test(args):
     return loss
 
 
-def plot_history(args):
-    pass
-    #TODO implement later on
-    # utils.plot_history(os.path.join(args.model_dir, 'history.csv'))
-
-
 def visualize(args):
-    n_imgs = 2   # number of images to visualize
+    n_imgs = 5   # number of images to visualize
 
     # Load the model
     config = io_utils.load_yaml(os.path.join(args.model_dir, 'config.yaml'))
@@ -80,51 +82,48 @@ def visualize(args):
     model.load_weights(args.model_dir)
 
     # Load and process a random selection of test images
-    test_set = _load_data_set(config['data_path'], test=True)
+    test_set = _load_data_set(config['data_path'], test=False)
     selection = np.random.choice(test_set['rgb'].shape[0], size=n_imgs)
-
-    rgb = test_set['rgb'][selection]
-    depth = _preprocess_depth(test_set)[selection]
+    processed = _preprocess_img(test_set)[selection]
+    proc_rgb   = processed[:,:,:,:3]
+    proc_depth = processed[:,:,:,-1]
 
     # Encode/reconstruct images and compute errors
-    reconstruction = model.predict(depth)
-    error = np.abs(depth - reconstruction)
+    reconstruction = model.predict(processed)
+    recon_rgb   = reconstruction[:,:,:,:3]
+    recon_depth = reconstruction[:,:,:,-1]
+
+    error_rgb = np.abs(proc_rgb - recon_rgb)
+    error_depth = np.abs(proc_depth - recon_depth)
 
     # Plot results
     fig = plt.figure()
     grid = ImageGrid(fig, 111,
-                     nrows_ncols=(n_imgs, 4),
+                     nrows_ncols=(n_imgs, 6),
                      share_all=True,
-                     axes_pad=0.05,
-                     cbar_mode='single',
-                     cbar_location='right',
-                     cbar_size='5%',
-                     cbar_pad=None)
-
-    def _plot_sample(i, rgb, depth, reconstruction, error):
-        # Plot RGB
-        ax = grid[4 * i]
-        ax.set_axis_off()
-        ax.imshow(rgb)
-
-        def _add_depth_img(depth_img, j):
-            ax = grid[4 * i + j]
-            ax.set_axis_off()
-            img = ax.imshow(depth_img.squeeze(), cmap='viridis')
-            img.set_clim(0., 0.3)
-            ax.cax.colorbar(img)
-
-        # Plot depth, reconstruction and error
-        _add_depth_img(depth, 1)
-        _add_depth_img(reconstruction, 2)
-        _add_depth_img(error, 3)
+                     axes_pad=0.05)
 
     for i in range(n_imgs):
-        _plot_sample(i, rgb[i], depth[i], reconstruction[i], error[i])
+        def _add_rgb_img(img, j):
+            ax = grid[6 * i + j]
+            ax.set_axis_off()
+            ax.imshow(img)
+
+        def _add_depth_img(img, j):
+            ax = grid[6 * i + j]
+            ax.set_axis_off()
+            ax.imshow(img.squeeze(), cmap='gray')
+
+        # Plot depth, reconstruction and error
+        _add_rgb_img(proc_rgb[i], 0)
+        _add_rgb_img(recon_rgb[i], 1)
+        _add_depth_img(error_rgb[i], 2)
+        _add_depth_img(proc_depth[i], 3)
+        _add_depth_img(recon_depth[i], 4)
+        _add_depth_img(error_depth[i], 5)
 
     plt.savefig(os.path.join(args.model_dir, 'reconstructions.png'), dpi=300)
     plt.show()
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -140,10 +139,6 @@ if __name__ == '__main__':
     # Sub-command for testing the model
     test_parser = subparsers.add_parser('test')
     test_parser.set_defaults(func=test)
-
-    # Sub-command for plotting the training history
-    plot_parser = subparsers.add_parser('plot_history')
-    plot_parser.set_defaults(func=plot_history)
 
     # sub-command for visualizing reconstructed images
     vis_parser = subparsers.add_parser('visualize')

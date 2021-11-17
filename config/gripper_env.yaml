@@ -20,16 +20,16 @@ scene:
 
 # Simulation parameters
 simulation:
-  time_horizon: 30
-  real_time: False
   visualize: False
+  time_horizon: 150
+  real_time: False
   gravity: False
-  unit_time: True
+  unit_time: False
 
 sensor:
   camera_info: config/camera_info.yaml
   transform: config/camera_info.yaml
-  encoder_dir: encoder_files/new_gripper_encoder
+  encoder_dir: checkpoints/encoder
   visualize: false
 
   # Randomize camera parameters

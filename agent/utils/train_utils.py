@@ -93,15 +93,16 @@ def run(args):
         env_name_v = f"{env_name}-env-v0"
     elif env_name == "gripper":
         env_name_v = f"{env_name}-env-v1"
+    env_name_v = f"gripper-env-v1"
     print(env_name_v)
 
     if args.visualize:
-        #config['simulation']['real_time'] = False
+        config['simulation']['real_time'] = False
         config['simulation']['visualize'] = True
 
     task = DummyVecEnv([lambda: gym.make(env_name_v, config=config, evaluate=True, test=True)])
-    #task = VecNormalize(task, norm_obs=False, norm_reward=False, clip_obs=10.)
-    task = VecNormalize.load(os.path.join('checkpoints/gripper', 'vecnormalize.pkl'), task)
+    #task = VecNormalize.load(os.path.join('checkpoints/final', 'vecnormalize.pkl'), task)
+    task = VecNormalize.load(os.path.join('checkpoints/encoder/source', 'vecnormalize.pkl'), task)
         
     # task = gym.make('gripper-env-v0', config=config, evaluate=True, test=args.test)
     model_lower = args.model.lower() 

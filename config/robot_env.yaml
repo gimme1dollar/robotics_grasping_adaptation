@@ -20,7 +20,7 @@ scene:
 
 # Simulation parameters
 simulation:
-  time_horizon: 30
+  time_horizon: 150
   real_time: False
   visualize: False
   gravity: False

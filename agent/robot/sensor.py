@@ -7,8 +7,8 @@ import numpy as np
 import pybullet as p
 import tensorflow as tf
 
-from manipulation_main.common import io_utils, transform_utils, camera_utils
-from manipulation_main.gripperEnv import encoders
+from agent.utils import io_utils, transform_utils, camera_utils
+from agent.robot import encoder
 
 class RGBDSensor:
     """Collects synthetic RGBD images of the scene.
@@ -188,7 +188,7 @@ class EncodedDepthImgSensor:
 
         # Build the graph and restore trained weights
         with tf.name_scope(self.scope):
-            self._encoder = encoders.SimpleAutoEncoder(encoder_config)
+            self._encoder = encoder.SimpleAutoEncoder(encoder_config)
             self._encoder.load_weights(model_dir)
 
         # Define the state space
@@ -206,22 +206,23 @@ class EncodedDepthImgSensor:
     def get_state(self):
         """Encode the depth image taken from the current viewpoint."""
         # Render
-        _, img, mask = self._sensor.get_state()
+        rgb, depth, mask = self._sensor.get_state()
 
         # Filter
-        img[mask == 0] = 0. #filter the plane but we don't have plane in the current viewpoint most of the time
-        img[mask == self._robot.robot_id] = 0.
+        depth[mask == 0] = 0. #filter the plane but we don't have plane in the current viewpoint most of the time
+        depth[mask == self._robot.robot_id] = 0.
         #FIXME only when table scene is selectesd
         if self.scene_type == "OnTable":
-            img[mask == 1] = 0. #filter the table
+            depth[mask == 1] = 0. #filter the table
             #img[mask == 2] = 0. #filter the tray
         if self.scene_type == "OnTray":
-            img[mask == 1] = 0. #filter the table
-            img[mask == 2] = 0. #filter the tray
+            depth[mask == 1] = 0. #filter the table
+            depth[mask == 2] = 0. #filter the tray
+        img = np.dstack((rgb, depth))
         
         # Encode
-        height, width = img.shape
-        input_img = np.reshape(img, (1, height, width, 1))
+        height, width = img.shape[0], img.shape[1]
+        input_img = np.reshape(img, (1, height, width, -1))
         encoding = self._encoder.encode(input_img).squeeze()
         if self._visualize:
             reconstructed_img = np.squeeze(self._encoder.predict(input_img)[0])
