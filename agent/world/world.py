@@ -36,7 +36,6 @@ class World(gym.Env):
         config_sim = config['simulation']
         visualize = config_sim.get('visualize', True) 
         self._real_time = config_sim.get('real_time', True)
-        print(visualize)
         self.physics_client = bullet_client.BulletClient(p.GUI if visualize else p.DIRECT)
 
         # Time
@@ -107,7 +106,6 @@ class World(gym.Env):
 
     ## Models
     def add_model(self, path, start_pos, start_orn, scaling=1.):
-        print(path)
         model = Model(self.physics_client)
         model.load_model(path, start_pos, start_orn, scaling)
         self.models.append(model)

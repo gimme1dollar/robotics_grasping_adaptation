@@ -67,6 +67,12 @@ python main.py run --config config/<conf_name> --model checkpoints/final/<path_n
 <img src="demo/domain_shift.gif" width="500px" height="300px">
 </p>  
 
+- encoder (simple)
+<p align="center">
+<img src="demo/encoder(simple)_recon.PNG" width="250px" height="150px">
+</p>  
+
+
 
 ## Contributors
 이주용 안석준
