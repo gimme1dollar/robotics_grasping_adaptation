@@ -3,23 +3,14 @@ import time
 import logging
 import numpy as np
 import tensorflow as tf
-import stable_baselines as sb
 
-import agent.utils.policy_utils as custom_obs_policy
 from agent.utils.callback_utils import EvalCallback, TrainingTimeCallback, SaveVecNormalizeCallback
 
-from stable_baselines.common.policies import MlpPolicy
-from stable_baselines.deepq.policies import MlpPolicy as DQNMlpPolicy
-from stable_baselines.common import set_global_seeds
-
-from stable_baselines.sac.policies import MlpPolicy as sacMlp
-from stable_baselines.sac.policies import CnnPolicy as sacCnn
-from stable_baselines.sac.policies import LnCnnPolicy as sacLnCnn
-from stable_baselines.common.policies import MlpPolicy, CnnPolicy
-from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize, VecFrameStack
-from stable_baselines.common.callbacks import BaseCallback, CheckpointCallback
-from stable_baselines.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise, AdaptiveParamNoiseSpec
-
+import model.SAC as sb
+import agent.utils.policy_torch_utils as custom_obs_policy
+from agent.utils.policy_torch_utils import AugmentedCnnPolicy as sacCnn
+from stable_baselines3.common.vec_env import VecNormalize
+from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
 
 
 class TensorboardCallback(BaseCallback):
@@ -66,111 +57,56 @@ class SBPolicy:
         self.norm = config['normalize']
  
     def learn(self):
-        # Use deterministic actions for evaluation
         eval_path = self.model_dir + "/best_model"
-        # TODO save checkpoints with vecnormalize callback pkl file
+
+        # vec normalize
+        self.test_env = VecNormalize(self.test_env, norm_obs=True, norm_reward=False, clip_obs=10.)
+
+        # set callback-functions
         save_vec_normalize = SaveVecNormalizeCallback(save_freq=1, save_path=eval_path)
-        if self.norm:
-            # Don't normalize the reward for test env
-            self.test_env = VecNormalize(self.test_env, norm_obs=True, norm_reward=False,
-                                        clip_obs=10.)
         eval_callback = EvalCallback(self.test_env, best_model_save_path=eval_path,
                                     log_path=eval_path+'/logs', eval_freq=5000,
                                     n_eval_episodes=10, callback_on_new_best=save_vec_normalize,
                                     deterministic=True, render=False)
         checkpoint_callback = CheckpointCallback(save_freq=5000, save_path=self.model_dir+'/logs/',
                                          name_prefix='rl_model')
-        time_callback = TrainingTimeCallback()
         tensorboard_file = "tensorboard/"
-        if self.algo == 'SAC':
-            if not self.env.envs[0].is_simplified() and (self.env.envs[0].depth_obs or self.env.envs[0].full_obs):
-                policy_kwargs = {
-                    "layers": self.config[self.algo]['layers'],
-                    "cnn_extractor": custom_obs_policy.create_augmented_nature_cnn(1)}
-                policy = sacCnn
-            elif self.env.envs[0].depth_obs or self.env.envs[0].full_obs:
-                policy_kwargs = {}
-                policy = sacCnn
-            else:
-                policy_kwargs = {"layers": self.config[self.algo]['layers'], "layer_norm": False}
-                policy = sacMlp
-            if self.load_dir:
-                top_folder_idx = self.load_dir.rfind('/')
-                top_folder_str = self.load_dir[0:top_folder_idx]
-                if self.norm:
-                    self.env = VecNormalize(self.env, training=True, norm_obs=False, norm_reward=False,
-                                            clip_obs=10.)
-                    self.env = VecNormalize.load(os.path.join(top_folder_str, 'vecnormalize.pkl'), self.env)
-                model = sb.SAC(policy,
-                            self.env,
-                            policy_kwargs=policy_kwargs,
-                            verbose=1,
-                            gamma=self.config['discount_factor'],
-                            buffer_size=self.config[self.algo]['buffer_size'],
-                            batch_size=self.config[self.algo]['batch_size'],
-                            learning_rate=self.config[self.algo]['step_size'],
-                            tensorboard_log=tensorboard_file)
-                model_load = sb.SAC.load(self.load_dir, self.env)
-                params = model_load.get_parameters()
-                model.load_parameters(params, exact_match=False)
-            else:
-                if self.norm:
-                    self.env = VecNormalize(self.env, norm_obs=True, norm_reward=True,
-                                            clip_obs=10.)
-                model = sb.SAC(policy,
-                            self.env,
-                            policy_kwargs=policy_kwargs,
-                            verbose=2,
-                            gamma=self.config['discount_factor'],
-                            buffer_size=self.config[self.algo]['buffer_size'],
-                            batch_size=self.config[self.algo]['batch_size'],
-                            learning_rate=self.config[self.algo]['step_size'],
-                            tensorboard_log=tensorboard_file)
-        elif self.algo == 'TRPO':
-            model = sb.TRPO(MlpPolicy, 
-                            self.env, 
-                            verbose=2,
-                            gamma=self.config['discount_factor'],
-                            timesteps_per_batch=self.config[self.algo]['max_iters'],
-                            vf_stepsize=self.config[self.algo]['step_size'],
-                            tensorboard_log=tensorboard_file)
-        elif self.algo == 'PPO':
-            if not self.env.envs[0].is_simplified() and (self.env.envs[0].depth_obs or self.env.envs[0].full_obs):
-                policy_kwargs = {
-                    "layers": self.config[self.algo]['layers'],
-                    "cnn_extractor": custom_obs_policy.create_augmented_nature_cnn(1)}
-                policy = CnnPolicy
-            elif self.env.envs[0].depth_obs or self.env.envs[0].full_obs:
-                policy_kwargs = {}
-                policy = CnnPolicy
-            else:
-                policy_kwargs = {"layers": self.config[self.algo]['layers'], "layer_norm": False}
-                policy = MlpPolicy
-            model = sb.PPO2(MlpPolicy, 
-                            self.env, 
-                            verbose=2,
-                            gamma=self.config['discount_factor'],
-                            learning_rate=self.config[self.algo]['learning_rate'],
-                            tensorboard_log=tensorboard_file)
-        elif self.algo == 'DQN':
-            if self.load_dir:
-                model = self.load_params()
-            else:
-                model = sb.DQN(DQNMlpPolicy, 
-                            self.env, 
-                            verbose=2,
-                            gamma=self.config['discount_factor'],
-                            batch_size=self.config[self.algo]['batch_size'],
-                            prioritized_replay=self.config[self.algo]['prioritized_replay'],
-                            tensorboard_log=tensorboard_file)
-        elif self.algo == "DDPG":
-            param_noise = AdaptiveParamNoiseSpec()
-            model = sb.DDPG(ddpgMlp,
-                            self.env,
-                            verbose=2,
-                            gamma=self.config['discount_factor'],
-                            param_noise=param_noise,
-                            tensorboard_log=tensorboard_file)
+
+        assert self.algo == 'SAC'
+
+        # build SRL module
+        if self.env.envs[0].depth_obs or self.env.envs[0].full_obs:
+            print("custom_cnn")
+            #policy_kwargs = {
+            #    "layers": self.config[self.algo]['layers'],
+            #    "cnn_extractor": custom_obs_policy.AugmentedNatureCnn(observation_space=self.env.envs[0].observation_space,
+            #                                                          features_dim=512, num_direct_features=1)}
+            policy = sacCnn
+        '''else:
+            print("mlp")
+            policy_kwargs = {"layers": self.config[self.algo]['layers'], "layer_norm": False}
+            policy = sacMlp
+        '''
+
+        # build model
+        if self.load_dir:
+            #self.load_params(policy, policy_kwargs, tensorboard_file)
+            self.load_params(policy, tensorboard_file)
+        else:
+            if self.norm:
+                self.env = VecNormalize(self.env, norm_obs=True, norm_reward=True,
+                                        clip_obs=10.)
+            model = sb.SAC(policy,
+                        self.env,
+                        #policy_kwargs=policy_kwargs,
+                        verbose=2,
+                        gamma=self.config['discount_factor'],
+                        buffer_size=self.config[self.algo]['buffer_size'],
+                        batch_size=self.config[self.algo]['batch_size'],
+                        learning_rate=self.config[self.algo]['step_size'],
+                        tensorboard_log=tensorboard_file)
+
+        # learning                
         try:
             model.learn(total_timesteps=int(self.config[self.algo]['total_timesteps']), 
                         callback=[TensorboardCallback(self.env, tensorboard_file, self.algo, self.log_freq, self.model_dir),
@@ -181,23 +117,25 @@ class SBPolicy:
 
         self.save(model, self.model_dir)
 
-    def load_params(self):
-        usable_params = {}
-        print("Loading the model")
-        model_load = sb.DQN.load(self.load_dir)
-        pars = model_load.get_parameters()
-        for key, value in pars.items():
-            if not 'action_value' in key and '2' in key:
-                usable_params.update({key:value})
-        model = sb.DQN(DQNMlpPolicy, 
-                    self.env, 
-                    verbose=2,
+    def load_params(self, policy, tensorboard_file):
+        top_folder_idx = self.load_dir.rfind('/')
+        top_folder_str = self.load_dir[0:top_folder_idx]
+        if self.norm:
+            self.env = VecNormalize(self.env, training=True, norm_obs=False, norm_reward=False,
+                                    clip_obs=10.)
+            self.env = VecNormalize.load(os.path.join(top_folder_str, 'vecnormalize.pkl'), self.env)
+        model = sb.SACwithEncoder(policy,
+                    self.env,
+                    #policy_kwargs=policy_kwargs,
+                    verbose=1,
                     gamma=self.config['discount_factor'],
+                    buffer_size=self.config[self.algo]['buffer_size'],
                     batch_size=self.config[self.algo]['batch_size'],
-                    prioritized_replay=self.config[self.algo]['prioritized_replay'],
+                    learning_rate=self.config[self.algo]['step_size'],
                     tensorboard_log=tensorboard_file)
-        model.load_parameters(usable_params, exact_match=False)
-        return model
+        model_load = sb.SAC.load(self.load_dir, self.env)
+        params = model_load.get_parameters()
+        model.load_parameters(params, exact_match=False)
     
     def save(self, model, model_dir):
         if '/' in model_dir:

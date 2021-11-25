@@ -37,7 +37,7 @@ class WorkspaceCurriculum(object):
 
     def update(self, task):
         """Update history and update parameters if appropriate."""
-        self._history.append(task.status == robot.ArmEnv.Status.SUCCESS)
+        self._history.append(task.status == robot.GripperEnv.Status.SUCCESS)
         
         if len(self._history) < self._history.maxlen:
             return

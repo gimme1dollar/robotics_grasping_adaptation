@@ -41,10 +41,15 @@ def train(args):
     # If not existing, create the model directory
     model_dir = os.path.expanduser(args.model_dir)
     os.makedirs(model_dir, exist_ok=True)
-
+    io_utils.save_yaml(config, os.path.join(model_dir, 'encoder_config.yaml'))
+    
     # Build the model
-    model = encoder.SimpleAutoEncoder(config)
-    io_utils.save_yaml(config, os.path.join(model_dir, 'config.yaml'))
+    if config['encoder_type'] == 'simple':
+        model = encoder.SimpleAutoEncoder(config)
+    elif config['encoder_type'] == 'domain':
+        model = encoder.DomainAdaptingEncoder(config)
+        raise NotImplemented
+        
 
     # Load and process the training data
     train_set = _load_data_set(config['data_path'], test=False)
@@ -59,8 +64,12 @@ def train(args):
 
 def test(args):
     # Load the model
-    config = io_utils.load_yaml(os.path.join(args.model_dir, 'config.yaml'))
-    model = encoder.SimpleAutoEncoder(config)
+    config = io_utils.load_yaml(os.path.join(args.model_dir, 'encoder_config.yaml'))
+
+    if config['encoder_type'] == 'simple':
+        model = encoder.SimpleAutoEncoder(config)
+    elif config['encoder_type'] == 'domain':
+        model = encoder.DomainAdaptingEncoder(config)
     model.load_weights(args.model_dir)
 
     # Load the test set
@@ -77,7 +86,7 @@ def visualize(args):
     n_imgs = 5   # number of images to visualize
 
     # Load the model
-    config = io_utils.load_yaml(os.path.join(args.model_dir, 'config.yaml'))
+    config = io_utils.load_yaml(os.path.join(args.model_dir, 'encoder_config.yaml'))
     model = encoder.SimpleAutoEncoder(config)
     model.load_weights(args.model_dir)
 

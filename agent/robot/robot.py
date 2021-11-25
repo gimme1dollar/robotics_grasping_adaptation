@@ -20,6 +20,7 @@ from agent.robot import sensor, encoder, actuator
 from agent.robot.reward import Reward, SimplifiedReward, GripperCustomReward, ArmCustomReward
 from agent.world.world import World 
 
+import torch as nn
 
 def _reset(robot, actuator, depth_sensor):
     """Reset until an object is within the fov of the camera."""
@@ -47,7 +48,6 @@ class GripperEnv(World):
         TIME_LIMIT = 3
         
     def __init__(self, config, evaluate=False, test=False, validate=False):
-        print("========== gripper-env-01 ==========")
         if not isinstance(config, dict):
             config = io_utils.load_yaml(config)
         
@@ -78,11 +78,18 @@ class GripperEnv(World):
 
         # Assign the sensors
         if self.depth_obs or self.full_obs:
+            print("without encoder")
             self._sensors = [self._camera]
         else:
-            self._encoder = sensor.EncodedDepthImgSensor(
+            print("with encoder")
+            if config['sensor']['encoder_type'] == 'full':
+                self._encoder = sensor.EncodedSimpleImgSensor(
+                                    config, self._camera, self)
+            elif config['sensor']['encoder_type'] == 'depth':
+                self._encoder = sensor.EncodedDepthImgSensor(
                                     config, self._camera, self)
             self._sensors = [self._encoder]
+        self._sensors.append(self._actuator)
 
         self.curriculum = curriculum_utils.WorkspaceCurriculum(config['curriculum'], self, evaluate)
         self.history = self.curriculum._history
@@ -103,6 +110,7 @@ class GripperEnv(World):
         self.register_callback(GripperEnv.Events.START_OF_EPISODE, reset)
         self.register_callback(GripperEnv.Events.START_OF_EPISODE, self._camera.reset)
         self.register_callback(GripperEnv.Events.START_OF_EPISODE, self._reward_fn.reset)
+        self.register_callback(GripperEnv.Events.END_OF_EPISODE, self.curriculum.update)
         self.register_callback(GripperEnv.Events.CLOSE, super().close)
 
 
@@ -189,17 +197,20 @@ class GripperEnv(World):
             obs = np.array([])
             for sensor in self._sensors:
                 obs = np.append(obs, sensor.get_state())
-            return obs
+        
         else:
             rgb, depth, _ = self._camera.get_state()
             sensor_pad = np.zeros(self._camera.state_space.shape[:2])
 
             sensor_pad[0][0] = self._actuator.get_state()
             if self.full_obs:
-                obs_stacked = np.dstack((rgb, depth, sensor_pad))
+                obs = np.dstack((rgb, depth, sensor_pad))
             else:
-                obs_stacked = np.dstack((depth, sensor_pad))
-            return obs_stacked
+                obs = np.dstack((depth, sensor_pad))
+        obs = nn.as_tensor(obs)
+        print(obs.size())
+        obs = obs.reshape(-1, 64, 64)
+        return obs
 
     def setup_spaces(self):
         self.action_space = self._actuator.setup_action_space()

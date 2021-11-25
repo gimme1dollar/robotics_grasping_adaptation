@@ -29,8 +29,9 @@ simulation:
 sensor:
   camera_info: config/camera_info.yaml
   transform: config/camera_info.yaml
-  encoder_dir: checkpoints/encoder
-  visualize: false
+  encoder_dir: checkpoints/_final/encoder_simple_512
+  encoder_type: full #[full, depth]
+  visualize: False
 
   # Randomize camera parameters
   randomize:
@@ -53,9 +54,9 @@ reward:
 # Workspace curriculum parameters
 curriculum:
   init_lambda: 0.
-  n_steps: 8
+  n_steps: 4
   success_threshold: 0.7
-  window_size: 1000
+  window_size: 500
   extent: [0.01, 0.1]
   robot_height: [0.15, 0.25]
   lift_dist: [0.015, 0.1]
@@ -82,32 +83,11 @@ normalize: True
 # Policy algorithm
 algorithm: sac
 
-DQN:
-  learning_rate: 0.001
-  batch_size: 32
-  tensorboard_logs: !!null
-  save_dir: DQN4mFull
-  total_timesteps: 4000000
-  prioritized_replay: True
-
-DDPG:
-  save_dir: DDPG
-  tensorboard_logs: DDPG
-  total_timesteps: 2000000
-
-PPO:
-  learning_rate: 0.0003
-  layers: [64, 64]
-  save_dir: ppo_5m
-  tensorboard_logs: !!null
-  total_timesteps: 5000000
-  n_steps: 2000
-
 SAC:
   max_iters: 400
   batch_size: 64
   layers: [64, 64]
-  buffer_size: 1000000
+  buffer_size: 100000
   step_size: 0.0003
   tensorboard_logs: !!null
   total_timesteps: 2000000

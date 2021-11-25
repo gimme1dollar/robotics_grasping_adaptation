@@ -8,10 +8,9 @@ from typing import Union, List, Dict, Any, Optional
 import gym
 import numpy as np
 
-from stable_baselines.common.vec_env import VecEnv, sync_envs_normalization, DummyVecEnv
-from stable_baselines.common.evaluation import evaluate_policy
-from stable_baselines import logger
-from stable_baselines.common.callbacks import BaseCallback, EventCallback
+from stable_baselines3.common.vec_env import VecEnv, sync_envs_normalization, DummyVecEnv
+from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import BaseCallback, EventCallback
 
 class EvalCallback(EventCallback):
     """

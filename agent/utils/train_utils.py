@@ -5,15 +5,11 @@ import gym
 import time
 
 import numpy as np
-import stable_baselines as sb
+import stable_baselines3 as sb
 import tensorflow as tf
 
-from stable_baselines.common.callbacks import BaseCallback, EvalCallback
-from stable_baselines.common.policies import MlpPolicy
-from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
-from stable_baselines.deepq.policies import MlpPolicy as DQNMlpPolicy
-from stable_baselines.sac.policies import MlpPolicy as sacMLP
-from stable_baselines.bench import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+from stable_baselines3.common.monitor import Monitor
 
 import agent
 from agent.utils.wrapper_utils import TimeFeatureWrapper
@@ -101,23 +97,12 @@ def run(args):
         config['simulation']['visualize'] = True
 
     task = DummyVecEnv([lambda: gym.make(env_name_v, config=config, evaluate=True, test=True)])
-    #task = VecNormalize.load(os.path.join('checkpoints/final', 'vecnormalize.pkl'), task)
-    task = VecNormalize.load(os.path.join('checkpoints/encoder/source', 'vecnormalize.pkl'), task)
+    task = VecNormalize.load(os.path.join('checkpoints/_final/baseline', 'vecnormalize.pkl'), task)
+    #task = VecNormalize.load(os.path.join('checkpoints/_final/encoder_simple', 'vecnormalize.pkl'), task)
         
     # task = gym.make('gripper-env-v0', config=config, evaluate=True, test=args.test)
-    model_lower = args.model.lower() 
-    if 'trpo' == config["algorithm"]: 
-        agent = sb.TRPO.load(args.model)
-    elif 'sac' == config["algorithm"]:
-        agent = sb.SAC.load(args.model)
-    elif 'ppo' == config["algorithm"]:
-        agent = sb.PPO2.load(args.model)
-    elif 'dqn' == config["algorithm"]:
-        agent = sb.DQN.load(args.model)
-    elif 'bdq' == config["algorithm"]:
-        agent = sb.BDQ.load(args.model)
-    else:
-        raise Exception
+    agent = sb.SAC.load(args.model)
+
     print("Run the agent")
     run_agent(task, agent, args.stochastic)
     task.close()

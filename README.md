@@ -9,11 +9,13 @@ Domain adaptation on robot grasping
 - nvidia-dirver 461.72
 - cuda 11.1
 - cuDNN 8.0.5
-- python 3.8
+- python 3.7.11
 - pybullet 2.6.4
 - tensorflow 1.14.0
 - keras 2.2.4
+- torch 1.9.1
 - stable_baseline 2.10.2
+- stable_baseline3 1.3.0
 ```
 - installation 
 ```
@@ -43,7 +45,7 @@ pytest test
 
 ## Demo 
 ```
-python main.py run --config config/<conf_name> --model checkpoints/final/<path_name>
+python main.py run --config config/<conf_name> --model checkpoints/_final/<path_name>
 ```
 
 - simulation
@@ -55,6 +57,10 @@ python main.py run --config config/<conf_name> --model checkpoints/final/<path_n
 </p>  
 
 - baseline training
+```
+python main.py train --config config/<conf_name> --model_dir checkpoints --algo SAC
+```
+
 <p align="center">
 <img src="demo/gripper_learning_curve.PNG" width="500px" height="250px">
 </p>  
@@ -68,8 +74,14 @@ python main.py run --config config/<conf_name> --model checkpoints/final/<path_n
 </p>  
 
 - encoder (simple)
+```
+python agent/utils/collection_utils.py --config config/<conf_name(wihtout encoder)> 
+python agent/utils/encoder_utils.py <encoder_model_dir> train --config config/<encoder_conf>
+python agent/utils/encoder_utils.py <encoder_model_dir> visualize
+```
+
 <p align="center">
-<img src="demo/encoder(simple)_recon.PNG" width="250px" height="150px">
+<img src="demo/encoder(simple)_recon.png" width="250px" height="150px">
 </p>  
 
 

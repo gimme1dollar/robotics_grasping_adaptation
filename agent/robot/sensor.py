@@ -166,6 +166,7 @@ def _build_projection_matrix(height, width, K, near, far):
     ortho = _gl_ortho(0., width, height, 0., near, far)
     return np.matmul(ortho, perspective)
 
+
 class EncodedDepthImgSensor:
     """Encodes the state of camera sensors.
 
@@ -184,7 +185,71 @@ class EncodedDepthImgSensor:
         # Load the encoder
         model_dir = config['encoder_dir']
         encoder_config = io_utils.load_yaml(
-            os.path.join(model_dir, 'config.yaml'))
+            os.path.join(model_dir, 'encoder_config.yaml'))
+
+        # Build the graph and restore trained weights
+        with tf.name_scope(self.scope):
+            self._encoder = encoder.DepthAutoEncoder(encoder_config)
+            self._encoder.load_weights(model_dir)
+
+        # Define the state space
+        dim = int(np.prod(self._encoder.encoding_shape))
+        self.state_space = gym.spaces.Box(-1., 1., (dim,), np.float32)
+
+        # If requested, setup an OpenCV window for visualizations
+        if self._visualize:
+            cv2.namedWindow('imgs', flags=cv2.WINDOW_NORMAL)
+
+    def get_variables(self):
+        """Returns a list of TensorFlow variables of the encoder network."""
+        return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, self.scope)
+
+    def get_state(self):
+        """Encode the depth image taken from the current viewpoint."""
+        # Render
+        _, img, mask = self._sensor.get_state()
+
+        # Filter
+        img[mask == 0] = 0. #filter the plane but we don't have plane in the current viewpoint most of the time
+        img[mask == self._robot.robot_id] = 0.
+        #FIXME only when table scene is selectesd
+        if self.scene_type == "OnTable":
+            img[mask == 1] = 0. #filter the table
+            img[mask == 2] = 0. #filter the tray
+        
+        # Encode
+        height, width = img.shape
+        input_img = np.reshape(img, (1, height, width, 1))
+        encoding = self._encoder.encode(input_img).squeeze()
+        if self._visualize:
+            reconstructed_img = np.squeeze(self._encoder.predict(input_img)[0])
+            error_img = np.abs(img - reconstructed_img)
+            stacked_imgs = np.vstack((img, reconstructed_img, error_img))
+            cv2.imshow('imgs', 4. * stacked_imgs)
+            cv2.waitKey(1)  # required to visualize image
+
+        return encoding
+
+
+class EncodedSimpleImgSensor:
+    """Encodes the state of camera sensors.
+
+    Attributes:
+        scope (str): The TensorFlow name scope of the encoder network.
+    """
+
+    def __init__(self, config, sensor, robot):
+        self.scope = 'encoded_img_sensor'
+        self._sensor = sensor
+        self._robot = robot
+        self.scene_type = config['scene'].get('scene_type', "OnTable")
+        config = config['sensor']
+        self._visualize = config.get('visualize', False)
+
+        # Load the encoder
+        model_dir = config['encoder_dir']
+        encoder_config = io_utils.load_yaml(
+            os.path.join(model_dir, 'encoder_config.yaml'))
 
         # Build the graph and restore trained weights
         with tf.name_scope(self.scope):
@@ -210,14 +275,11 @@ class EncodedDepthImgSensor:
 
         # Filter
         depth[mask == 0] = 0. #filter the plane but we don't have plane in the current viewpoint most of the time
-        depth[mask == self._robot.robot_id] = 0.
-        #FIXME only when table scene is selectesd
         if self.scene_type == "OnTable":
             depth[mask == 1] = 0. #filter the table
             #img[mask == 2] = 0. #filter the tray
         if self.scene_type == "OnTray":
-            depth[mask == 1] = 0. #filter the table
-            depth[mask == 2] = 0. #filter the tray
+            pass
         img = np.dstack((rgb, depth))
         
         # Encode
@@ -230,5 +292,12 @@ class EncodedDepthImgSensor:
             stacked_imgs = np.vstack((img, reconstructed_img, error_img))
             cv2.imshow('imgs', 4. * stacked_imgs)
             cv2.waitKey(1)  # required to visualize image
+        
+        # attach sensor_pad
+        sensor_pad = np.zeros(self._sensor.state_space.shape[:2])
+        sensor_pad[0][0] = self._robot._actuator.get_state()
+        sensor_pad = tf.contrib.slim.flatten(sensor_pad[..., -1])
+        sensor_pad = sensor_pad[:, :1]
+        encoding = tf.concat((encoding, sensor_pad), axis=1)
 
         return encoding

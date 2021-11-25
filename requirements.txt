@@ -1,4 +1,5 @@
 stable-baselines==2.10.2
+stable-baselines3
 tensorflow<1.15.0
 autopep8
 gym
@@ -17,3 +18,5 @@ scikit-learn
 numba==0.43
 tqdm
 paramiko
+tensorboard>=2.4.1
+torch==1.9.1

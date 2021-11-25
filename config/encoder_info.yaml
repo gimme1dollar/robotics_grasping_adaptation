@@ -1,12 +1,13 @@
 # Encoder parameters
 network: [
-  {filters: 32, kernel_size: 7, strides: 2},
-  {filters: 32, kernel_size: 5, strides: 2},
-  {filters: 32, kernel_size: 3, strides: 2}
+  {filters: 32, kernel_size: 8, strides: 4},
+  {filters: 64, kernel_size: 4, strides: 2},
+  {filters: 64, kernel_size: 3, strides: 1}
 ]
-encoding_dim: 100
+encoding_dim: 512 # original 2**(6 + 6 + 2)
 learning_rate: 0.0002
 batch_size: 128
 epochs: 120
 data_path: ./checkpoints/encoder/data.pkl
 encoder_dir: checkpoints/encoder
+encoder_type: simple #[simple, domain]
