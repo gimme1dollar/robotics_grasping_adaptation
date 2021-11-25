@@ -3,7 +3,6 @@ import time
 
 import numpy as np
 
-
 from agent.robot.robot import ArmEnv
 
 

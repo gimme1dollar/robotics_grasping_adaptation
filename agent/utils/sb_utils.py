@@ -2,14 +2,13 @@ import os
 import time
 import logging
 import numpy as np
-import tensorflow as tf
 
-from agent.utils.callback_utils import EvalCallback, TrainingTimeCallback, SaveVecNormalizeCallback
 
 import model.SAC as sb
-import agent.utils.policy_torch_utils as custom_obs_policy
 from agent.utils.policy_torch_utils import AugmentedCnnPolicy as sacCnn
+
 from stable_baselines3.common.vec_env import VecNormalize
+from agent.utils.callback_utils import EvalCallback, SaveVecNormalizeCallback
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
 
 
@@ -38,9 +37,6 @@ class TensorboardCallback(BaseCallback):
         if len(history) is not 0 and self.num_timesteps is not self.old_timestep:            
             if self.num_timesteps % self.log_freq == 0:
                 logging.info("model: {} Success Rate: {} Timestep Num: {} lambda: {}".format(self.model_name, sr, self.num_timesteps, curr._lambda))
-            if self.tf:
-                summary = tf.Summary(value=[tf.Summary.Value(tag='success_rate', simple_value=sr)])
-                self.locals['writer'].add_summary(summary, self.num_timesteps)
             self.old_timestep = self.num_timesteps
         return True
 
@@ -77,10 +73,6 @@ class SBPolicy:
         # build SRL module
         if self.env.envs[0].depth_obs or self.env.envs[0].full_obs:
             print("custom_cnn")
-            #policy_kwargs = {
-            #    "layers": self.config[self.algo]['layers'],
-            #    "cnn_extractor": custom_obs_policy.AugmentedNatureCnn(observation_space=self.env.envs[0].observation_space,
-            #                                                          features_dim=512, num_direct_features=1)}
             policy = sacCnn
         '''else:
             print("mlp")
@@ -124,7 +116,7 @@ class SBPolicy:
             self.env = VecNormalize(self.env, training=True, norm_obs=False, norm_reward=False,
                                     clip_obs=10.)
             self.env = VecNormalize.load(os.path.join(top_folder_str, 'vecnormalize.pkl'), self.env)
-        model = sb.SACwithEncoder(policy,
+        model = sb.SAC(policy,
                     self.env,
                     #policy_kwargs=policy_kwargs,
                     verbose=1,

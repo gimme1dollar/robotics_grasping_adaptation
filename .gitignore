@@ -4,8 +4,6 @@ __pycache__/
 *.pkl
 *.csv
 
-checkpoints/gripper/
-checkpoints/robot/
-checkpoints/encoder/
+checkpoints/robot*
 wandb/
 tensorboard/

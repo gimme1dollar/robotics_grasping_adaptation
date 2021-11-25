@@ -22,14 +22,13 @@ scene:
 simulation:
   time_horizon: 150
   real_time: False
-  visualize: False
+  visualize: True
   gravity: False
   unit_time: False
 
 sensor:
   camera_info: config/camera_info.yaml
   transform: config/camera_info.yaml
-  encoder_dir: encoder_files/new_gripper_encoder
   visualize: False
 
   # Randomize camera parameters
@@ -80,32 +79,11 @@ normalize: True
 # Policy algorithm
 algorithm: sac
 
-DQN:
-  learning_rate: 0.001
-  batch_size: 32
-  tensorboard_logs: !!null
-  save_dir: DQN4mFull
-  total_timesteps: 4000000
-  prioritized_replay: True
-
-DDPG:
-  save_dir: DDPG
-  tensorboard_logs: DDPG
-  total_timesteps: 2000000
-
-PPO:
-  learning_rate: 0.0003
-  layers: [64, 64]
-  save_dir: ppo_5m
-  tensorboard_logs: !!null
-  total_timesteps: 5000000
-  n_steps: 2000
-
 SAC:
   max_iters: 400
   batch_size: 64
   layers: [64, 64]
-  buffer_size: 1000000
+  buffer_size: 50000
   step_size: 0.0003
   tensorboard_logs: !!null
   total_timesteps: 2000000

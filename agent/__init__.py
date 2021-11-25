@@ -4,8 +4,3 @@ register(
     id='robot-env-v0',
     entry_point='agent.robot.robot:ArmEnv',
 )
-
-register(
-    id='gripper-env-v1',
-    entry_point='agent.robot.robot:GripperEnv',
-)

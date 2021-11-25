@@ -9,12 +9,11 @@ Domain adaptation on robot grasping
 - nvidia-dirver 461.72
 - cuda 11.1
 - cuDNN 8.0.5
-- python 3.7.11
+- python 3.8
 - pybullet 2.6.4
-- tensorflow 1.14.0
-- keras 2.2.4
+- gym 0.19.0
 - torch 1.9.1
-- stable_baseline 2.10.2
+- torchvision 0.10.1
 - stable_baseline3 1.3.0
 ```
 - installation 
@@ -22,11 +21,13 @@ Domain adaptation on robot grasping
 git clone <url_repo> <dir_name>
 conda create -n <env_name> 
 conda activate <env_name> 
+conda install pytorch=1.9.1 torchvision=0.10.1 cudatoolkit=11.1 -c pytorch -c conda-forge
 pip install -r requirements.txt
 ```
 
-- robot configuration (references)       
-https://github.com/BarisYazici/deep-rl-grasping     
+- references
+robot config.: https://github.com/BarisYazici/deep-rl-grasping     
+style-agnostic network: https://github.com/hyeonseobnam/sagnet
 
 ```
 pytest test
@@ -50,9 +51,6 @@ python main.py run --config config/<conf_name> --model checkpoints/_final/<path_
 
 - simulation
 <p align="center">
-<img src="demo/gripper_demo.gif" width="350px">
-</p>  
-<p align="center">
 <img src="demo/arm_demo.gif" width="350px">
 </p>  
 
@@ -72,18 +70,6 @@ python main.py train --config config/<conf_name> --model_dir checkpoints --algo 
 <p align="center">
 <img src="demo/domain_shift.gif" width="500px" height="300px">
 </p>  
-
-- encoder (simple)
-```
-python agent/utils/collection_utils.py --config config/<conf_name(wihtout encoder)> 
-python agent/utils/encoder_utils.py <encoder_model_dir> train --config config/<encoder_conf>
-python agent/utils/encoder_utils.py <encoder_model_dir> visualize
-```
-
-<p align="center">
-<img src="demo/encoder(simple)_recon.png" width="250px" height="150px">
-</p>  
-
 
 
 ## Contributors

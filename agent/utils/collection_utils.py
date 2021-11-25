@@ -34,7 +34,7 @@ def collect_dataset(args):
         depth_imgs = np.empty((n_imgs, height, width, 1), dtype=np.float32)
         masks = np.empty((n_imgs, height, width, 1), dtype=np.int32)
 
-        env = gym.make('gripper-env-v1', config=config)
+        env = gym.make('robot-env-v0', config=config)
         env.reset()
 
         actuator = env.get_actuator()
