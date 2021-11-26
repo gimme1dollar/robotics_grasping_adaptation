@@ -1,4 +1,4 @@
-"""Collect images of the picking task for training the autoencoder."""
+"""Collect images of the picking task for training (e.g., autoencoder) """
 
 import argparse
 import os

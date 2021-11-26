@@ -2,6 +2,8 @@ import gym
 import numpy as np
 import torch as th
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
+import time
+from stable_baselines3.common.utils import safe_mean, should_collect_more_steps
 
 import torch.nn as nn
 from torch.nn import functional as F
@@ -311,3 +313,25 @@ class SAC(OffPolicyAlgorithm):
         else:
             saved_pytorch_variables = ["ent_coef_tensor"]
         return state_dicts, saved_pytorch_variables
+
+    def _dump_logs(self) -> None:
+        """
+        Write log.
+        """
+        time_elapsed = time.time() - self.start_time
+        fps = int(self.num_timesteps / (time_elapsed + 1e-8))
+        self.logger.record("rollout/episodes", self._episode_num)
+        if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
+            self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+            self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+        self.logger.record("rollout/fps", fps)
+        self.logger.record("rollout/time_elapsed", int(time_elapsed))
+        self.logger.record("rollout/total_timesteps", self.num_timesteps)
+        
+        if len(self.ep_success_buffer) > 0:
+            self.logger.record("rollout/success_rate", safe_mean(self.ep_success_buffer))
+            self.logger.record("rollout/curriculum_lambda", self.env.envs[0].curriculum._lambda)
+            self.logger.record("rollout/curriculum_len", len(self.env.envs[0].curriculum._history))
+            self.logger.record("rollout/curriculum_mean", np.mean(self.env.envs[0].curriculum._history))
+        # Pass the number of timesteps for tensorboard
+        self.logger.dump(step=self.num_timesteps)

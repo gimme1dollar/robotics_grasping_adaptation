@@ -3,6 +3,7 @@ import functools
 import os
 
 import numpy as np
+import pybullet
 
 from agent.robot import robot
 
@@ -36,11 +37,11 @@ class WorkspaceCurriculum(object):
 
     def update(self, task):
         """Update history and update parameters if appropriate."""
-        self._history.append(task.status == robot.ArmEnv.Status.SUCCESS)
-        
+        self._history.append(task.status == robot.GripperEnv.Status.SUCCESS)
+
         if len(self._history) < self._history.maxlen:
             return
-        if np.mean(self._history) > self._success_threshold and self._lambda is not 1.:
+        if np.mean(self._history) > self._success_threshold and self._lambda != 1.:
             # Increase workspace
             self._lambda = min(1., self._lambda + 1. / self._n_steps)
             self._update_parameters()
