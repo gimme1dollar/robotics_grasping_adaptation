@@ -6,7 +6,7 @@ import gym
 import numpy as np
 import pybullet as p
 
-from agent.utils import io_utils, transform_utils, camera_utils
+from agent.utils import cameras, io, transform
 
 class RGBDSensor:
     """Collects synthetic RGBD images of the scene.
@@ -23,10 +23,10 @@ class RGBDSensor:
         full_obs = config.get('full_observation', False)
         intrinsics_path = config['camera_info']
         extrinsics_path = config['transform']
-        extrinsics_dict = io_utils.load_yaml(extrinsics_path)
+        extrinsics_dict = io.load_yaml(extrinsics_path)
 
-        self._camera_info = io_utils.load_yaml(intrinsics_path)
-        self._transform = transform_utils.from_dict(extrinsics_dict)
+        self._camera_info = io.load_yaml(intrinsics_path)
+        self._transform = transform.from_dict(extrinsics_dict)
 
         self._randomize = config.get('randomize', None) if randomize else None
         self._construct_camera(self._camera_info, self._transform)
@@ -67,19 +67,19 @@ class RGBDSensor:
         camera_info['K'][5] += np.random.uniform(-c, c)
         # Randomize translation
         magnitue = np.random.uniform(0., t)
-        direction = transform_utils.random_unit_vector()
+        direction = transform.random_unit_vector()
         transform[:3, 3] += magnitue * direction
         # Randomize rotation
         angle = np.random.uniform(0., r)
-        axis = transform_utils.random_unit_vector()
-        q = transform_utils.quaternion_about_axis(angle, axis)
-        transform = np.dot(transform_utils.quaternion_matrix(q), transform)
+        axis = transform.random_unit_vector()
+        q = transform.quaternion_about_axis(angle, axis)
+        transform = np.dot(transform.quaternion_matrix(q), transform)
 
         self._construct_camera(camera_info, transform)
 
     def get_state(self):
         """Render an RGBD image and mask from the current viewpoint."""
-        h_world_robot = transform_utils.from_pose(*self._robot.get_pose_cam())
+        h_world_robot = transform.from_pose(*self._robot.get_pose_cam())
         h_camera_world = np.linalg.inv(
             np.dot(h_world_robot, self._h_robot_camera))
         rgb, depth, mask = self.camera.render_images(h_camera_world)
@@ -98,7 +98,7 @@ class RGBDCamera(object):
 
     def __init__(self, physics_client, config):
         self._physics_client = physics_client
-        self.info = camera_utils.CameraInfo.from_dict(config)
+        self.info = cameras.CameraInfo.from_dict(config)
         self._near = config['near']
         self._far = config['far']
 
