@@ -13,3 +13,4 @@ wandb
 stable-baselines3[extra]
 tensorboard
 einops
+scikit-image

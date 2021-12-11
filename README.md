@@ -1,6 +1,10 @@
 # adaptation-on-grasping
 Domain adaptation on robot grasping 
 
+## warning 
+<p align="center">
+(currently working on integration of different environments)
+</p>  
 
 ## Environment
 - environment
@@ -26,12 +30,10 @@ pip install -r requirements.txt
 ```
 
 - references
-robot config.: https://github.com/BarisYazici/deep-rl-grasping     
+robot config: https://github.com/BarisYazici/deep-rl-grasping     
+rl with augmented data (rad): https://github.com/MishaLaskin/rad    
 style-agnostic network: https://github.com/hyeonseobnam/sagnet
 
-```
-pytest test
-```
 
 ## Algorithm
 - Pseudo algorithm for reinforcement learning
@@ -50,6 +52,9 @@ python main.py run --config config/<conf_name> --model checkpoints/_final/<path_
 ```
 
 - simulation
+```
+pytest test
+```
 <p align="center">
 <img src="demo/arm_demo.gif" width="350px">
 </p>  
@@ -65,12 +70,13 @@ python main.py train --config config/<conf_name> --model_dir checkpoints --algo 
 
 - domain shift
 <p align="center">
-<img src="demo/domain_shift.PNG" width="320px" height="100px">
+(Currently Working)
 </p>  
-<p align="center">
-<img src="demo/domain_shift.gif" width="500px" height="300px">
-</p>  
+    
 
-
+## Related works
+-
+    
+    
 ## Contributors
 이주용 안석준

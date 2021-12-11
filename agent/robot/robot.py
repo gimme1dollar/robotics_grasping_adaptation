@@ -11,9 +11,9 @@ import pybullet as p
 import gym
 from gym import spaces 
 
-from agent.utils import io_utils
-from agent.utils import transform_utils
-from agent.utils import curriculum_utils
+from agent.utils import io
+from agent.utils import transform
+from agent.utils import curriculum
 
 from agent.world.model import Model_gripper
 from agent.robot import sensor, actuator
@@ -48,7 +48,7 @@ class GripperEnv(World):
         
     def __init__(self, config, evaluate=False, test=False, validate=False):
         if not isinstance(config, dict):
-            config = io_utils.load_yaml(config)
+            config = io.load_yaml(config)
         super().__init__(config, evaluate=evaluate, test=test, validate=validate)
         self._step_time = collections.deque(maxlen=10000)
         self._workspace = {'lower': np.array([-1., -1., -1]),
@@ -63,7 +63,7 @@ class GripperEnv(World):
         self._model = None
         self._joints = None
         self._initial_height = 0.3
-        self._init_ori = transform_utils.quaternion_from_euler(np.pi, 0., 0.)
+        self._init_ori = transform.quaternion_from_euler(np.pi, 0., 0.)
         self.main_joints = [0, 1, 2, 3] #FIXME make it better
         
         # Assign actuator
@@ -82,7 +82,7 @@ class GripperEnv(World):
         self._reward_fn = GripperCustomReward(config['reward'], self)
 
         # Assign curriculum (for better training)
-        self.curriculum = curriculum_utils.WorkspaceCurriculum(config['curriculum'], self, evaluate)
+        self.curriculum = curriculum.WorkspaceCurriculum(config['curriculum'], self, evaluate)
         self.history = self.curriculum._history
 
         # Assign callbacks
@@ -237,15 +237,15 @@ class GripperEnv(World):
 
     def relative_pose(self, translation, yaw_rotation):
         pos, orn = self._model.get_pose()
-        _, _, yaw = transform_utils.euler_from_quaternion(orn)
+        _, _, yaw = transform.euler_from_quaternion(orn)
         #Calculate transformation matrices
-        T_world_old = transform_utils.compose_matrix(
+        T_world_old = transform.compose_matrix(
             angles=[np.pi, 0., yaw], translate=pos)
-        T_old_to_new = transform_utils.compose_matrix(
+        T_old_to_new = transform.compose_matrix(
             angles=[0., 0., yaw_rotation], translate=translation)
         T_world_new = np.dot(T_world_old, T_old_to_new)
         self.endEffectorAngle += yaw_rotation
-        target_pos, target_orn = transform_utils.to_pose(T_world_new)
+        target_pos, target_orn = transform.to_pose(T_world_new)
         self.absolute_pose(target_pos, self.endEffectorAngle)
 
     def close_gripper(self):

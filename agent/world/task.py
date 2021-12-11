@@ -4,7 +4,7 @@ import numpy as np
 import pybullet_data
 
 from abc import ABC, abstractmethod
-from agent.utils import transform_utils
+from agent.utils import transform
 
 class BaseScene(ABC):
     def __init__(self, world, config, rng, test=False, validate=False):
@@ -66,7 +66,7 @@ class OnTable(BaseScene):
         # Spawn objects
         for path in urdf_paths:
             position = np.r_[self._rng.uniform(-self.extent, self.extent, 2), 0.1]
-            orientation = transform_utils.random_quaternion(self._rng.rand(3))
+            orientation = transform.random_quaternion(self._rng.rand(3))
             self._world.add_model(path, position, orientation, scaling=scale)
             self._world.run(0.4)
 
@@ -86,7 +86,7 @@ class OnFloor(BaseScene):
         # Spawn objects
         for path in urdf_paths:
             position = np.r_[self._rng.uniform(-self.extent, self.extent, 2), 0.1]
-            orientation = transform_utils.random_quaternion(self._rng.rand(3))
+            orientation = transform.random_quaternion(self._rng.rand(3))
             self._world.add_model(path, position, orientation, scaling=scale)
             self._world.run(0.4)
 
